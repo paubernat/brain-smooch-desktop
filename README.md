@@ -21,3 +21,23 @@ npm run sign    # firma "unlisted" en AMO -> extension/web-ext-artifacts/*.xpi
 - **Debug / spike:** `localStorage.setItem('bsd-debug', '1')` en youtube.com. Ver [extension/SPIKE.md](extension/SPIKE.md).
 - **Puerto del servicio:** 8765 por defecto; cambiable con `browser.storage.local.set({ servicePort: N })`.
 - **Instalación permanente:** Firefox normal solo instala extensiones firmadas. Poner `AMO_JWT_ISSUER` y `AMO_JWT_SECRET` (claves de API de addons.mozilla.org → *Developer Hub → Manage API Keys*) en `.env` en la raíz y ejecutar `npm run sign`. La firma unlisted no publica la extensión. Hay que subir `version` en `manifest.json` antes de cada nueva firma. El `.xpi` resultante se instala arrastrándolo a Firefox.
+
+## Judges & ablation
+
+Jueces en `service/app/judges/` (Liquid `d1.2-ultra`/`d1.2`, OpenAI Decisions `gpt-6-luna`, Claude Sonnet opcional), implementados con `httpx` según [docs/judges-api-notes.md](docs/judges-api-notes.md). Claves en `.env`: `LIQUID_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`. Precios en `service/pricing.yaml`; política en `policy/policy.yaml` (`policy_version` = `<version>-<sha256[:8]>`).
+
+La ablación (`eval/`, en la raíz del repo) se ejecuta **desde `service/`** con el entorno del servicio (el modo editable añade la raíz del repo al `sys.path`):
+
+```sh
+cd service
+uv sync
+uv run python -m eval.ablation --models liquid/d1.2-ultra,openai/decisions --configs A,B,C,D,E,F --split test --dry-run
+uv run python -m eval.ablation --models liquid/d1.2-ultra,openai/decisions --configs A,B,C,D,E,F --split test
+uv run pytest
+uv run ruff check . ../eval
+```
+
+- Configuraciones A–F (PLAN §10.1); `+L0` (p. ej. `D+L0`) añade el historial del canal con validación temporal (solo etiquetas del canal anteriores al `labeled_at` del vídeo).
+- `--dry-run`: llamadas nuevas y coste estimado (tokens ≈ caracteres/4 + asignación por imagen de `pricing.yaml`), sin llamar a nadie.
+- Caché en la tabla `verdicts` por `(video_id, judge, model, config, policy_version)`: cambiar la política invalida la caché. `--concurrency N`, reintentos con backoff exponencial en 429/5xx (respeta `Retry-After`).
+- Informe: `eval/reports/<YYYY-MM-DD>.md` y `.html` (resumen, desgloses Shorts/vídeos y con/sin transcripción, matriz de confusión y calibración del mejor par, curva cobertura/acierto, 10 errores más confiados, recomendación: menor falso LIBRE → mayor macro-F1 → menor coste).
