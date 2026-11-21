@@ -9,7 +9,7 @@
     "watch": "node build.mjs --watch",
     "typecheck": "tsc --noEmit",
     "dev": "node build.mjs && web-ext run --source-dir dist --start-url https://www.youtube.com/",
-    "dev:profile": "node build.mjs && web-ext run --source-dir dist --start-url https://www.youtube.com/ --firefox-profile=brain-smooch-dev --profile-create-if-missing --keep-profile-changes",
+    "dev:profile": "node build.mjs && web-ext run --source-dir dist --start-url https://www.youtube.com/ --firefox-profile=../data/firefox-profile --profile-create-if-missing --keep-profile-changes",
     "test": "tsc --noEmit && vitest run",
     "lint": "node build.mjs && web-ext lint --source-dir dist",
     "sign": "node build.mjs && node scripts/sign.mjs"
