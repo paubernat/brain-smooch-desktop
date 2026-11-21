@@ -1,4 +1,4 @@
-version: 1
+version: 2
 question:
   id: tier
   type: choice
@@ -21,7 +21,8 @@ question:
         Música con sustancia: alguien tocando (piano, jazz) con los acordes o la partitura en pantalla,
         explicaciones de acordes, voicings, armonía o melodía, transcripciones, covers y tutoriales
         de cómo tocar temas. Técnico de calidad: arquitectura de software, tutoriales de Azure,
-        IA explicada con rigor por fuentes con criterio. Shorts incluidos si cumplen esto.
+        IA explicada con rigor por fuentes con criterio (canales que hablan de las cosas con propiedad,
+        p. ej. Fireship o DeepSeek). Shorts incluidos si cumplen esto.
 auxiliary_questions:          # ayudan a depurar; no deciden el veredicto (van en la misma llamada)
   - id: is_music_education
     type: boolean
@@ -36,8 +37,8 @@ auxiliary_questions:          # ayudan a depurar; no deciden el veredicto (van e
     type: boolean
     instructions: ¿Es una lista sensacionalista o contenido de relleno de bajo esfuerzo?
 channel_lists:                # reglas fijas; se aplican antes del modelo
-  LIMITADO: [Atrioc, dunkey, Ludwig, The Yard, Good Work, Cheese Factory, Fireship, geopold, orslok]  # TODO: confirmar nombres y pasar a channel_id
-  LIBRE: [DeepSeek]           # TODO: completar
+  LIMITADO: [Atrioc, dunkey, Ludwig, The Yard, Good Work, Cheese Factory, geopold, orslok]  # TODO: confirmar nombres y pasar a channel_id
+  LIBRE: [Fireship, DeepSeek]  # TODO: completar
   NO: []
 examples:                     # few-shot, se pasan si el juez lo soporta
   - {video_id: ib6nIB-fbNE, label: LIBRE, note: "Short de acordes de piano R&B/jazz (Jeff Schneider)"}
