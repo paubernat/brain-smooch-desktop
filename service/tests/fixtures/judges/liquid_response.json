@@ -1,0 +1,16 @@
+{
+  "model": "d1.2-ultra",
+  "answers": {
+    "tier": {
+      "type": "choice",
+      "choice": "LIBRE",
+      "probabilities": { "NO": 0.05, "LIMITADO": 0.15, "LIBRE": 0.8 },
+      "confidence": 0.62
+    },
+    "is_music_education": { "type": "noul", "noul": 0.95 },
+    "is_gaming": { "type": "noul", "noul": 0.02 },
+    "is_sports": { "type": "noul", "noul": 0.01 },
+    "is_low_effort_listicle": { "type": "noul", "noul": 0.1 }
+  },
+  "usage": { "input_tokens": 912, "output_tokens": 0 }
+}

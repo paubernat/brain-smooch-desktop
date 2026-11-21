@@ -360,6 +360,23 @@ def channel_history(
     return history
 
 
+def channel_history_before(
+    conn: sqlite3.Connection, channel_id: str | None, labeled_at: str, exclude_video_id: str
+) -> dict[Label, int]:
+    """L0 con validación temporal (PLAN §10.1): etiquetas del canal anteriores a `labeled_at`."""
+    history = dict.fromkeys(Label, 0)
+    if channel_id is None:
+        return history
+    rows = conn.execute(
+        "SELECT l.label, COUNT(*) AS n FROM labels l JOIN videos v USING (video_id) "
+        "WHERE v.channel_id = ? AND v.video_id != ? AND l.labeled_at < ? GROUP BY l.label",
+        (channel_id, exclude_video_id, labeled_at),
+    ).fetchall()
+    for row in rows:
+        history[Label(row["label"])] = row["n"]
+    return history
+
+
 def label_stats(conn: sqlite3.Connection) -> Stats:
     stats = Stats()
     for row in conn.execute("SELECT label, COUNT(*) AS n FROM labels GROUP BY label"):

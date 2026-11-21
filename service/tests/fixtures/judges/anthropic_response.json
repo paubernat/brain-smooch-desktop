@@ -1,0 +1,14 @@
+{
+  "id": "msg_test",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-sonnet-5-5",
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"label\": \"libre\", \"probs\": {\"NO\": 0.1, \"LIMITADO\": 0.2, \"LIBRE\": 0.7}, \"reason\": \"Piano voicings tutorial\", \"is_music_education\": true, \"is_gaming\": false, \"is_sports\": false, \"is_low_effort_listicle\": false}"
+    }
+  ],
+  "stop_reason": "end_turn",
+  "usage": { "input_tokens": 1000, "output_tokens": 100 }
+}

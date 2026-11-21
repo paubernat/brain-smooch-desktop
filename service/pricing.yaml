@@ -1,5 +1,13 @@
-# Precios orientativos (USD por millón de tokens). Editables; los jueces los leen de aquí.
-# Fuente: PLAN.md §9.2. Ninguno de estos modelos cobra la salida.
+# Precios (USD por millón de tokens). Editables; los jueces y la ablación los leen de aquí.
+# Fuente: docs/judges-api-notes.md. Liquid y OpenAI no cobran la salida.
+# coste = input_tokens × input_per_mtok / 1e6 (+ output_tokens × output_per_mtok / 1e6)
+
+# Estimación para `--dry-run` (antes de llamar): tokens ≈ caracteres / chars_per_token
+# + image_tokens por imagen (Liquid estima 1.500 por imagen para sus límites de tasa).
+estimate:
+  chars_per_token: 4
+  image_tokens: 1500
+
 models:
   liquid/d1.2-ultra:
     input_per_mtok: 0.042
@@ -7,9 +15,10 @@ models:
   liquid/d1.2:
     input_per_mtok: 0.02
     output_per_mtok: 0.0
-  openai/decisions:       # modelo gpt-6-luna
+  openai/decisions:       # modelo gpt-6-luna; precio de entrada sin caché
     input_per_mtok: 0.10
     output_per_mtok: 0.0
-  # anthropic/sonnet:     # opcional, solo experimentos; rellenar con el precio vigente
-  #   input_per_mtok: null
-  #   output_per_mtok: null
+  anthropic/sonnet:       # claude-sonnet-5-5; opcional, solo experimentos
+    input_per_mtok: 2.0
+    output_per_mtok: 10.0
+    # image_tokens: 1500  # se puede sobrescribir la estimación por modelo

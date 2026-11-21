@@ -22,11 +22,19 @@ question:
         explicaciones de acordes, voicings, armonía o melodía, transcripciones, covers y tutoriales
         de cómo tocar temas. Técnico de calidad: arquitectura de software, tutoriales de Azure,
         IA explicada con rigor por fuentes con criterio. Shorts incluidos si cumplen esto.
-auxiliary_questions:          # ayudan a depurar; no deciden el veredicto
-  - {id: is_music_education, type: boolean}
-  - {id: is_gaming, type: boolean}
-  - {id: is_sports, type: boolean}
-  - {id: is_low_effort_listicle, type: boolean}
+auxiliary_questions:          # ayudan a depurar; no deciden el veredicto (van en la misma llamada)
+  - id: is_music_education
+    type: boolean
+    instructions: ¿Enseña o muestra música con sustancia (acordes, armonía, partitura, tutorial)?
+  - id: is_gaming
+    type: boolean
+    instructions: ¿Trata principalmente sobre videojuegos?
+  - id: is_sports
+    type: boolean
+    instructions: ¿Trata principalmente sobre deportes?
+  - id: is_low_effort_listicle
+    type: boolean
+    instructions: ¿Es una lista sensacionalista o contenido de relleno de bajo esfuerzo?
 channel_lists:                # reglas fijas; se aplican antes del modelo
   LIMITADO: [Atrioc, dunkey, Ludwig, The Yard, Good Work, Cheese Factory, Fireship, geopold, orslok]  # TODO: confirmar nombres y pasar a channel_id
   LIBRE: [DeepSeek]           # TODO: completar

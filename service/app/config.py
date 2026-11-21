@@ -14,11 +14,17 @@ class Settings(BaseSettings):
     )
 
     youtube_api_key: str | None = None
+    liquid_api_key: str | None = None
+    openai_api_key: str | None = None
+    anthropic_api_key: str | None = None  # opcional (solo experimentos con Sonnet)
     service_port: int = 8765
     data_dir: Path = REPO_ROOT / "data"
     channel_flush_seconds: float = 10.0
     channel_cache_days: int = 30
     http_timeout_s: float = 20.0
+    judge_timeout_s: float = 60.0
+    policy_path: Path = REPO_ROOT / "policy" / "policy.yaml"
+    pricing_path: Path = REPO_ROOT / "service" / "pricing.yaml"
 
     @property
     def db_path(self) -> Path:

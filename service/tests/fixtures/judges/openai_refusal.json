@@ -1,0 +1,17 @@
+{
+  "model": "gpt-6-luna",
+  "answers": [
+    { "type": "refusal", "name": "tier" },
+    { "type": "predicate", "name": "is_music_education", "probability": 0.4 },
+    { "type": "predicate", "name": "is_gaming", "probability": 0.1 },
+    { "type": "predicate", "name": "is_sports", "probability": 0.1 },
+    { "type": "predicate", "name": "is_low_effort_listicle", "probability": 0.2 }
+  ],
+  "usage": {
+    "input_tokens": 1500,
+    "input_tokens_details": { "cached_tokens": 0, "cache_write_tokens": 0 },
+    "output_tokens": 0,
+    "output_tokens_details": { "reasoning_tokens": 0 },
+    "total_tokens": 1500
+  }
+}
