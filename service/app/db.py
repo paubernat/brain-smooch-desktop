@@ -128,7 +128,7 @@ SPLIT_PATTERN: tuple[Split, ...] = ("dev", "dev", "test", "dev", "test")
 
 
 def now_iso() -> str:
-    return datetime.now(UTC).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="microseconds")
 
 
 class Database:
