@@ -14,11 +14,13 @@ from app import db
 from app.config import Settings, get_settings
 from app.enrich.channel import ChannelEnricher
 from app.enrich.pipeline import EnrichmentPipeline
+from app.live_judge import LiveJudge
 from app.models import FichaIn, FichaOut, LabelIn, LabelOut, Stats
 from app.policy_store import PolicyStore
 from app.routes import feedback as feedback_routes
 from app.routes import judges as judges_routes
 from app.routes import policy as policy_routes
+from app.routes import verdicts as verdict_routes
 from app.state import AppState, get_ctx
 
 EXTENSION_ORIGIN_REGEX = r"^moz-extension://.*$"
@@ -49,7 +51,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
             pipeline = EnrichmentPipeline(database, client, channels, settings.data_dir)
             policies = PolicyStore(settings.policy_path, settings.policy_history_dir)
-            app.state.ctx = AppState(settings, database, pipeline, channels, client, policies)
+            live = LiveJudge(
+                database,
+                flush_channels=channels.flush,
+                wait_s=settings.live_wait_s,
+                poll_s=settings.live_poll_s,
+            )
+            app.state.ctx = AppState(settings, database, pipeline, channels, client, policies, live)
             tasks = [asyncio.create_task(channels.run_forever())]
             tasks += [asyncio.create_task(pipeline.enrich_frames(v)) for v in pipeline.resume()]
             try:
@@ -72,6 +80,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(policy_routes.router)
     app.include_router(feedback_routes.router)
     app.include_router(judges_routes.router)
+    app.include_router(verdict_routes.router)
     return app
 
 

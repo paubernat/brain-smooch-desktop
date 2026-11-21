@@ -5,7 +5,6 @@ from pathlib import Path
 
 import pytest
 
-from app.config import REPO_ROOT
 from app.models import Label
 from app.policy import PolicyContent, load_policy, parse_policy
 from app.policy_store import (
@@ -15,13 +14,14 @@ from app.policy_store import (
     parse_policy_yaml,
     render_policy,
 )
+from tests.helpers import POLICY_FIXTURE
 
 
 @pytest.fixture
 def store(tmp_path: Path) -> PolicyStore:
     path = tmp_path / "policy" / "policy.yaml"
     path.parent.mkdir()
-    shutil.copy(REPO_ROOT / "policy" / "policy.yaml", path)
+    shutil.copy(POLICY_FIXTURE, path)
     return PolicyStore(path, tmp_path / "policy" / "history")
 
 

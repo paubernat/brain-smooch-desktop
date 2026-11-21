@@ -9,6 +9,8 @@ from PIL import Image
 from app.models import StoryboardLevel
 
 FIXTURES = Path(__file__).parent / "fixtures"
+# Copia fija de policy/policy.yaml: la real cambia cada vez que el usuario guarda su perfil.
+POLICY_FIXTURE = FIXTURES / "policy.yaml"
 VIDEO_ID = "ib6nIB-fbNE"
 CHANNEL_ID = "UCjeffschneider000000000"
 THUMB_URL = f"https://i.ytimg.com/vi/{VIDEO_ID}/maxresdefault.jpg"

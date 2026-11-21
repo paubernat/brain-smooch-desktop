@@ -2,12 +2,14 @@
 import { onRouteChange, type Route } from './router';
 import { renderLanding } from './views/landing';
 import { renderManual } from './views/manual';
+import { renderTestPolicy } from './views/test-policy';
 import { renderWizard } from './wizard';
 
 const VIEWS: Record<Route, () => HTMLElement> = {
   landing: () => renderLanding(),
   manual: renderManual,
   agentic: renderWizard,
+  test: renderTestPolicy,
   calibration: () => renderLanding({ focusCalibration: true }),
 };
 
@@ -15,6 +17,7 @@ const TITLES: Record<Route, string> = {
   landing: 'Configura tu perfil',
   manual: 'Configuración manual · Brain Smooch',
   agentic: 'Configuración agéntica · Brain Smooch',
+  test: 'Probar política · Brain Smooch',
   calibration: 'Calibración · Brain Smooch',
 };
 

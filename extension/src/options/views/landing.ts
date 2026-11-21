@@ -1,9 +1,11 @@
-// Landing: welcome, the two ways of configuring the profile and the calibration card.
+// Landing: welcome, the two ways of configuring the profile, "Probar política",
+// the live judge settings and the calibration card.
 import { optionsApi } from '../api';
 import { errorNotice, show } from '../components/status';
 import { h } from '../dom';
 import { hrefFor, type Route } from '../router';
 import { CalibrationCard } from './calibration';
+import { LiveJudgeCard } from './live-judge-card';
 
 interface ModeCard {
   route: Route;
@@ -28,7 +30,16 @@ const MODES: readonly ModeCard[] = [
     text: 'Edita tú mismo las instrucciones, las tres categorías, las preguntas auxiliares y las listas de canales.',
     cta: 'Abrir el editor →',
   },
+  {
+    route: 'test',
+    icon: '🧪',
+    title: 'Probar política',
+    text: 'Evalúa la política guardada con un juez sobre tus vídeos etiquetados (split dev) y pide a la IA que corrija los errores.',
+    cta: 'Probar →',
+  },
 ];
+
+const SAME_POLICY_NOTE = 'Manual y agéntico editan la misma política (policy/policy.yaml).';
 
 export interface LandingOptions {
   /** Scroll to the calibration card (#calibracion, linked from the label panel). */
@@ -62,6 +73,8 @@ export function renderLanding(options: LandingOptions = {}): HTMLElement {
         ),
       ),
     ),
+    h('p', { className: 'muted small same-policy-note', text: SAME_POLICY_NOTE }),
+    new LiveJudgeCard().element,
     new CalibrationCard(options.focusCalibration ?? false).element,
     status,
   );

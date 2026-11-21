@@ -2,7 +2,7 @@
 
 import json
 import sqlite3
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -81,7 +81,10 @@ CREATE TABLE IF NOT EXISTS labels (
     label TEXT NOT NULL CHECK (label IN ('NO', 'LIMITADO', 'LIBRE')),
     reason TEXT,
     labeled_at TEXT NOT NULL,
-    split TEXT NOT NULL CHECK (split IN ('dev', 'test'))
+    split TEXT NOT NULL CHECK (split IN ('dev', 'test')),
+    -- 1 si el veredicto del juez en directo se mostró antes de etiquetar (fuga: la ablación
+    -- excluye estas etiquetas por defecto).
+    verdict_seen_before_label INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS verdicts (
@@ -121,10 +124,23 @@ CREATE TABLE IF NOT EXISTS policy_feedback (
     policy_version INTEGER NOT NULL,
     incorporated_at TEXT NOT NULL
 );
+
+-- Ajustes pequeños de la app (p. ej. el juez en directo), como JSON por clave.
+CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value_json TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+-- Primera vez que el servicio devolvió el veredicto visible de un vídeo (juez en directo).
+CREATE TABLE IF NOT EXISTS verdict_exposures (
+    video_id TEXT PRIMARY KEY REFERENCES videos(video_id),
+    first_shown_at TEXT NOT NULL
+);
 """
 
 # Columnas añadidas después de la primera versión del esquema (migración aditiva).
-ADDED_VIDEO_COLUMNS = {
+ADDED_VIDEO_COLUMNS: dict[str, str] = {
     "l2_attempts": "INTEGER NOT NULL DEFAULT 0",
     "l4_attempts": "INTEGER NOT NULL DEFAULT 0",
     # Etiqueta IA de YouTube y estado de directo (NULL = desconocido / ficha anterior).
@@ -134,6 +150,10 @@ ADDED_VIDEO_COLUMNS = {
     "live_now": "INTEGER",
     "was_live": "INTEGER",
     "live_upcoming": "INTEGER",
+}
+ADDED_COLUMNS: dict[str, dict[str, str]] = {
+    "videos": ADDED_VIDEO_COLUMNS,
+    "labels": {"verdict_seen_before_label": "INTEGER NOT NULL DEFAULT 0"},
 }
 # Reintentos de enriquecimiento fallido al arrancar (por vídeo y nivel).
 MAX_ENRICH_ATTEMPTS = 3
@@ -346,6 +366,7 @@ def get_label(conn: sqlite3.Connection, video_id: str) -> LabelOut | None:
         reason=row["reason"],
         split=row["split"],
         labeled_at=row["labeled_at"],
+        verdict_seen_before_label=bool(row["verdict_seen_before_label"]),
     )
 
 
@@ -360,19 +381,45 @@ def next_split(conn: sqlite3.Connection, label: Label) -> Split:
 def upsert_label(
     conn: sqlite3.Connection, video_id: str, label: Label, reason: str | None
 ) -> LabelOut:
-    """Etiqueta (o re-etiqueta) un vídeo. El split se asigna la primera vez y se conserva."""
+    """Etiqueta (o re-etiqueta) un vídeo. El split se asigna la primera vez y se conserva.
+
+    `verdict_seen_before_label` se recalcula en cada etiqueta: 1 si el servicio ya había
+    mostrado el veredicto del juez en directo (fuga de información hacia la etiqueta).
+    """
     existing = get_label(conn, video_id)
     split = existing.split if existing else next_split(conn, label)
     labeled_at = now_iso()
+    seen = verdict_exposed(conn, video_id)
     conn.execute(
-        "INSERT INTO labels (video_id, label, reason, labeled_at, split) VALUES (?, ?, ?, ?, ?) "
+        "INSERT INTO labels (video_id, label, reason, labeled_at, split, "
+        "verdict_seen_before_label) VALUES (?, ?, ?, ?, ?, ?) "
         "ON CONFLICT(video_id) DO UPDATE SET label=excluded.label, reason=excluded.reason, "
-        "labeled_at=excluded.labeled_at",
-        (video_id, label.value, reason, labeled_at, split),
+        "labeled_at=excluded.labeled_at, "
+        "verdict_seen_before_label=excluded.verdict_seen_before_label",
+        (video_id, label.value, reason, labeled_at, split, int(seen)),
     )
     return LabelOut(
-        video_id=video_id, label=label, reason=reason, split=split, labeled_at=labeled_at
+        video_id=video_id,
+        label=label,
+        reason=reason,
+        split=split,
+        labeled_at=labeled_at,
+        verdict_seen_before_label=seen,
     )
+
+
+def record_verdict_exposure(conn: sqlite3.Connection, video_id: str) -> None:
+    """Anota (una vez) que el veredicto de este vídeo se ha mostrado al usuario."""
+    conn.execute(
+        "INSERT INTO verdict_exposures (video_id, first_shown_at) VALUES (?, ?) "
+        "ON CONFLICT(video_id) DO NOTHING",
+        (video_id, now_iso()),
+    )
+
+
+def verdict_exposed(conn: sqlite3.Connection, video_id: str) -> bool:
+    row = conn.execute("SELECT 1 FROM verdict_exposures WHERE video_id = ?", (video_id,)).fetchone()
+    return row is not None
 
 
 def channel_history(
@@ -522,14 +569,36 @@ def find_verdict(
     policy_version: str,
 ) -> Verdict | None:
     """Caché de veredictos por (video_id, judge, model, config, policy_version) — PLAN §10.3."""
+    found = find_latest_verdict(
+        conn,
+        video_id=video_id,
+        judge=judge,
+        model=model,
+        configs=(config,),
+        policy_version=policy_version,
+    )
+    return found[1] if found else None
+
+
+def find_latest_verdict(
+    conn: sqlite3.Connection,
+    *,
+    video_id: str,
+    judge: str,
+    model: str,
+    configs: Sequence[str],
+    policy_version: str,
+) -> tuple[str, Verdict] | None:
+    """El veredicto más reciente con cualquiera de `configs`; devuelve `(config, veredicto)`."""
+    marks = ", ".join("?" * len(configs))
     row = conn.execute(
-        "SELECT * FROM verdicts WHERE video_id = ? AND judge = ? AND model = ? AND config = ? "
-        "AND policy_version = ? ORDER BY id DESC LIMIT 1",
-        (video_id, judge, model, config, policy_version),
+        "SELECT * FROM verdicts WHERE video_id = ? AND judge = ? AND model = ? "
+        f"AND config IN ({marks}) AND policy_version = ? ORDER BY id DESC LIMIT 1",
+        (video_id, judge, model, *configs, policy_version),
     ).fetchone()
     if row is None:
         return None
-    return Verdict(
+    verdict = Verdict(
         label=row["label"],
         probs=json.loads(row["probs_json"]),
         confidence=row["confidence"] or 0.0,
@@ -539,6 +608,7 @@ def find_verdict(
         latency_ms=row["latency_ms"] or 0,
         raw=json.loads(row["raw_json"]),
     )
+    return row["config"], verdict
 
 
 # --- ficha completa -----------------------------------------------------------------------------
@@ -575,13 +645,48 @@ def load_ficha(conn: sqlite3.Connection, video_id: str) -> FichaOut | None:
     )
 
 
-def list_labeled_video_ids(conn: sqlite3.Connection, split: Split | None = None) -> list[str]:
-    query = "SELECT video_id FROM labels"
+def list_labeled_video_ids(
+    conn: sqlite3.Connection, split: Split | None = None, *, include_seen: bool = True
+) -> list[str]:
+    """`include_seen=False` omite las etiquetas puestas después de ver el veredicto."""
+    clauses: list[str] = []
+    params: list[str] = []
+    if split is not None:
+        clauses.append("split = ?")
+        params.append(split)
+    if not include_seen:
+        clauses.append("verdict_seen_before_label = 0")
+    where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+    query = f"SELECT video_id FROM labels{where} ORDER BY labeled_at"
+    return [r["video_id"] for r in conn.execute(query, params)]
+
+
+def count_seen_labels(conn: sqlite3.Connection, split: Split | None = None) -> int:
+    """Etiquetas marcadas con `verdict_seen_before_label` (en `split`, o en todas)."""
+    query = "SELECT COUNT(*) FROM labels WHERE verdict_seen_before_label = 1"
     params: tuple[str, ...] = ()
     if split is not None:
-        query += " WHERE split = ?"
+        query += " AND split = ?"
         params = (split,)
-    return [r["video_id"] for r in conn.execute(query + " ORDER BY labeled_at", params)]
+    (count,) = conn.execute(query, params).fetchone()
+    return int(count)
+
+
+# --- ajustes (tabla `settings`) ----------------------------------------------------------------
+
+
+def get_setting(conn: sqlite3.Connection, key: str) -> Any | None:
+    row = conn.execute("SELECT value_json FROM settings WHERE key = ?", (key,)).fetchone()
+    return None if row is None else json.loads(row["value_json"])
+
+
+def put_setting(conn: sqlite3.Connection, key: str, value: Any) -> None:
+    conn.execute(
+        "INSERT INTO settings (key, value_json, updated_at) VALUES (?, ?, ?) "
+        "ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json, "
+        "updated_at=excluded.updated_at",
+        (key, _dumps(value), now_iso()),
+    )
 
 
 def _metadata_from_row(row: sqlite3.Row) -> MetadataOut:
@@ -644,7 +749,8 @@ def videos_needing_frames(
 
 
 def _add_missing_columns(conn: sqlite3.Connection) -> None:
-    existing = {row["name"] for row in conn.execute("PRAGMA table_info(videos)")}
-    for name, ddl in ADDED_VIDEO_COLUMNS.items():
-        if name not in existing:
-            conn.execute(f"ALTER TABLE videos ADD COLUMN {name} {ddl}")
+    for table, columns in ADDED_COLUMNS.items():
+        existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+        for name, ddl in columns.items():
+            if name not in existing:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}")

@@ -9,7 +9,6 @@ import pytest
 
 from app import db
 from app.authoring.author import content_from_output
-from app.config import REPO_ROOT
 from app.models import (
     AiDisclosure,
     FichaIn,
@@ -23,7 +22,7 @@ from app.policy import PolicyContent, PolicyRules, parse_policy
 from app.policy_store import PolicyStore, check_round_trip, render_policy
 from app.rules import apply_rules
 from eval.metrics import Record, breakdowns
-from tests.helpers import VIDEO_ID, ficha_payload
+from tests.helpers import POLICY_FIXTURE, VIDEO_ID, ficha_payload
 
 AI_TEXT = "Sounds or visuals were altered or fully generated. Learn more"
 
@@ -47,7 +46,7 @@ def store_and_load(database: db.Database, ficha: FichaIn) -> FichaOut:
 
 @pytest.fixture
 def policy() -> PolicyContent:
-    return parse_policy((REPO_ROOT / "policy" / "policy.yaml").read_text("utf-8")).content()
+    return parse_policy((POLICY_FIXTURE).read_text("utf-8")).content()
 
 
 # --- almacenamiento ----------------------------------------------------------------------------
@@ -208,14 +207,14 @@ def test_policy_rules_round_trip(tmp_path: Path, policy: PolicyContent) -> None:
 
     path = tmp_path / "policy" / "policy.yaml"
     path.parent.mkdir()
-    shutil.copy(REPO_ROOT / "policy" / "policy.yaml", path)
+    shutil.copy(POLICY_FIXTURE, path)
     store = PolicyStore(path, tmp_path / "policy" / "history")
     assert store.save(policy).rules.block_ai_labeled is True
     assert store.load().content().rules == policy.rules
 
 
 def test_policy_without_rules_defaults_to_off() -> None:
-    text = (REPO_ROOT / "policy" / "policy.yaml").read_text("utf-8").split("\nrules:")[0]
+    text = (POLICY_FIXTURE).read_text("utf-8").split("\nrules:")[0]
     assert parse_policy(text).rules == PolicyRules()
 
 

@@ -5,12 +5,18 @@
 // Labels always go to the video in the address bar (on Shorts, the one on
 // screen): a label for a video that is no longer current is refused, and a
 // label given before the ficha is saved is queued and sent right after.
+//
+// Once the ficha is saved the live verdict is requested in the background; it
+// is shown only while its video is still the current one. With reveal
+// "after_label" the service hides it until the video is labelled, so the panel
+// asks for it again after each label.
 import { api } from './api';
 import { onBridgeNavigation, requestSnapshot } from './bridge-client';
 import { debugLog, dumpSpike, initDebug } from './debug';
 import { buildFicha } from './extract/ficha';
 import type { FichaPayload, FichaResponse, Label } from './types';
 import { LabelPanel, signalBadges } from './ui/label-panel';
+import { needsReveal, verdictErrorMessage } from './ui/verdict-view';
 import { parseVideoUrl, type VideoRef } from './url';
 
 const URL_POLL_MS = 500; // Shorts swipes may only change the URL
@@ -87,6 +93,7 @@ async function processVideo(ref: VideoRef): Promise<void> {
     panel.setReady(true);
     panel.setStatus('ficha guardada', 'ok');
     void pollLevels(ref.videoId, gen);
+    void loadVerdict(ref.videoId, gen);
     if (queued?.videoId === ref.videoId) {
       const { label, reason } = queued;
       queued = null;
@@ -110,6 +117,28 @@ async function pollLevels(videoId: string, gen: number): Promise<void> {
     panel.setLevels(res.data.levels);
     if (res.data.levels.L2 !== 'pending' && res.data.levels.L4 !== 'pending') return;
   }
+}
+
+/** Live verdict (rule, cache or judge call) for the video of generation `gen`. */
+async function loadVerdict(videoId: string, gen: number): Promise<void> {
+  const current = () => gen === generation && panel.currentVideo() === videoId;
+  panel.setVerdict({ kind: 'loading' });
+  const res = await api.requestVerdict(videoId);
+  if (!current()) return;
+  if (!res.ok) {
+    panel.setVerdict({ kind: 'error', message: verdictErrorMessage(res.status, res.error) });
+    return;
+  }
+  panel.setVerdict({ kind: 'ready', verdict: res.data });
+}
+
+/** After a label, a hidden verdict can be shown (the service decides). */
+async function revealVerdict(videoId: string): Promise<void> {
+  if (!needsReveal(panel.verdictState())) return;
+  const gen = generation;
+  const res = await api.getVerdict(videoId);
+  if (gen !== generation || panel.currentVideo() !== videoId || !res.ok) return;
+  panel.setVerdict({ kind: 'ready', verdict: res.data });
 }
 
 /** A click or shortcut on the panel: send now, queue, or refuse if the video changed. */
@@ -149,6 +178,7 @@ async function sendLabel(videoId: string, label: Label, reason: string): Promise
   panel.setLabel({ label: res.data.label, reason: res.data.reason, labeled_at: res.data.labeled_at, split: res.data.split });
   panel.setStatus(`etiquetado ${res.data.label} (${res.data.split})`, 'ok');
   void refreshPending();
+  void revealVerdict(videoId);
 }
 
 async function refreshPending(): Promise<void> {

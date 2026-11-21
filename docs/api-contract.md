@@ -68,8 +68,35 @@ Respuesta: `200` con la ficha (igual que `GET /fichas/{video_id}`).
 ```json
 {"video_id": "...", "label": "NO|LIMITADO|LIBRE", "reason": "opcional"}
 ```
-Respuesta `200` `{"video_id": "...", "label": "...", "reason": "...", "split": "dev|test", "labeled_at": "..."}`.
+Respuesta `200` `{"video_id": "...", "label": "...", "reason": "...", "split": "dev|test", "labeled_at": "...", "verdict_seen_before_label": false}`.
 `404` si la ficha no existe. Re-etiquetar actualiza label/reason pero conserva el `split`.
+`verdict_seen_before_label` (columna de `labels`, se recalcula en cada etiqueta): `true` si el servicio ya había devuelto el veredicto visible del juez en directo para ese vídeo (tabla `verdict_exposures`). La ablación y `/policy/evaluate` excluyen esas etiquetas (`--include-seen` las incluye en la ablación).
+
+## Juez en directo: `POST /verdicts/{video_id}`, `GET /verdicts/{video_id}`
+
+`POST` decide el veredicto del vídeo con la política guardada y los ajustes de `/settings/live`:
+1. Reglas fijas (`apply_rules`): si aplican, `source: "rule"` sin llamar al modelo.
+2. Caché de la ablación (`verdicts`, clave `video_id`/judge/model/`config`/`policy_version`).
+3. Si no, espera como mucho 8 s (`LIVE_WAIT_S`) a los niveles asíncronos que pide la config (L2, L4; fuerza el lote de canales) y llama al juez (2 reintentos). Si siguen pendientes decide con lo que haya y guarda el veredicto como `<config>~partial` (la ablación no lo lee); la siguiente petición con los niveles completos vuelve a llamar.
+
+`GET` devuelve la regla o el último veredicto en caché (completo o parcial) sin llamar a nadie; `404` si no hay.
+
+```json
+{
+  "video_id": "...", "revealed": true, "reveal": "after_label",
+  "label": "LIBRE", "confidence": 0.87, "probs": {"NO": 0.05, "LIMITADO": 0.08, "LIBRE": 0.87},
+  "source": "model", "rule": null, "reason": null,
+  "judge": "liquid/d1.2-ultra", "config": "D", "partial": false, "cached": false,
+  "cost_usd": 0.0001, "latency_ms": 900, "policy_version": "5-1a2b3c4d"
+}
+```
+- `source` ∈ `rule | model`; con `rule`, `rule` ∈ `channel_list | block_live | block_ai_labeled` y `reason` lo explica.
+- `revealed: false` (con `reveal: "after_label"` y el vídeo sin etiquetar): `label`, `confidence`, `probs`, `source`, `rule` y `reason` van a `null`. Tras etiquetar, `GET` lo devuelve visible.
+- `cost_usd`: coste de esta petición (0 si viene de caché o de una regla).
+- `404` sin ficha, `503` si falta la clave del juez (solo `POST`), `502` si el juez falla.
+
+## `GET /settings/live`, `PUT /settings/live`
+`{"judge": "liquid/d1.2-ultra", "config": "D", "reveal": "after_label"}` (valores por defecto; tabla `settings`). `judge`: clave de `GET /judges`; `config`: `A`–`F` (sin `+L0`); `reveal` ∈ `after_label | always`. `PUT` con el objeto completo; `422` si algo no es válido.
 
 ## `GET /labels/stats`
 `{"total": 0, "by_label": {"NO": 0, "LIMITADO": 0, "LIBRE": 0}, "by_split": {"dev": 0, "test": 0}, "shorts": 0, "with_transcript": 0}`
@@ -170,4 +197,4 @@ Respuesta: como `/policy/refine` más `"base_version": 3` y `"feedback": [{"vide
 Nunca incluye el valor de las claves, solo si están configuradas.
 
 ## CORS
-Solo se permite el origen de la extensión (`moz-extension://<uuid>`). Como el UUID es por instalación, el servicio acepta cualquier `moz-extension://` origin (regex) y nada más. Las peticiones salen del content script vía background/`fetch` con host permission a `http://127.0.0.1/*`; la página de opciones (también `moz-extension://`) hace `fetch` directamente. Métodos permitidos: `GET`, `POST`, `PUT`.
+Solo se permite el origen de la extensión (`moz-extension://<uuid>`). Como el UUID es por instalación, el servicio acepta cualquier `moz-extension://` origin (regex) y nada más. Las peticiones salen del content script vía background/`fetch` con host permission a `http://127.0.0.1/*` (solo `/health`, `/fichas`, `/labels`, `/verdicts/{id}` y el resumen de `/policy/feedback`); la página de opciones (también `moz-extension://`) hace `fetch` directamente. Métodos permitidos: `GET`, `POST`, `PUT`.

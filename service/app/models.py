@@ -212,6 +212,8 @@ class LabelOut(BaseModel):
     reason: str | None = None
     split: Split
     labeled_at: str
+    # El veredicto del juez en directo se había mostrado antes de esta etiqueta.
+    verdict_seen_before_label: bool = False
 
 
 class Stats(BaseModel):

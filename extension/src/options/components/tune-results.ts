@@ -1,10 +1,10 @@
-// Rendering pieces of step 3: estimate, metrics, misclassified table, proposal.
-import { TIER_INFO, tierHeader } from '../components/policy-editor';
-import { notice } from '../components/status';
+// Rendering pieces of "Probar política": estimate, metrics, misclassified table, proposal.
+import { TIER_INFO, tierHeader } from './policy-editor';
+import { notice } from './status';
 import { button, h } from '../dom';
 import { percent, plural, usd } from '../format';
 import type { EvalOutcome, Misclassified, RefineResult } from '../types';
-import { rationaleBox } from '../components/rationale';
+import { rationaleBox } from './rationale';
 
 export function estimateLine(e: EvalOutcome): HTMLElement {
   const text =

@@ -1,6 +1,7 @@
 // Agentic wizard controller: holds the state, renders the stepper and the current step.
 import { optionsApi } from '../api';
 import { viewHeader } from '../components/header';
+import { loadTuneCatalog } from '../components/policy-tester';
 import { errorNotice, show, spinner } from '../components/status';
 import { button, h } from '../dom';
 import type { PolicyOut } from '../types';
@@ -71,11 +72,7 @@ class WizardController implements WizardContext {
   }
 
   catalog(): ReturnType<WizardContext['catalog']> {
-    this.catalogPromise ??= Promise.all([optionsApi.judges(), optionsApi.labelStats()]).then(([judges, stats]) => {
-      if (!judges.ok) return { error: judges.error, status: judges.status };
-      if (!stats.ok) return { error: stats.error, status: stats.status };
-      return { judges: judges.data, stats: stats.data };
-    });
+    this.catalogPromise ??= loadTuneCatalog();
     const pending = this.catalogPromise;
     void pending.then((c) => {
       if ('error' in c) this.catalogPromise = null; // retry next time

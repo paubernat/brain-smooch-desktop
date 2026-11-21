@@ -19,7 +19,7 @@ from app.judges.sonnet import ANTHROPIC_URL, SonnetJudge
 from app.models import FichaView, ImageRef, Label, VideoSection
 from app.policy import Policy, load_policy, parse_policy
 from app.pricing import Pricing, load_pricing
-from tests.helpers import FIXTURES
+from tests.helpers import FIXTURES, POLICY_FIXTURE
 
 JUDGE_FIXTURES = FIXTURES / "judges"
 AUX_IDS = ["is_music_education", "is_gaming", "is_sports", "is_low_effort_listicle"]
@@ -31,7 +31,7 @@ def recorded(name: str) -> dict[str, Any]:
 
 @pytest.fixture
 def policy() -> Policy:
-    return load_policy(REPO_ROOT / "policy" / "policy.yaml")
+    return load_policy(POLICY_FIXTURE)
 
 
 @pytest.fixture
@@ -73,7 +73,7 @@ def sent_body(route: respx.Route) -> dict[str, Any]:
 def test_policy_version_is_version_plus_hash_and_ignores_line_endings(policy: Policy) -> None:
     assert policy.policy_version.startswith(f"{policy.version}-")
     assert len(policy.policy_version.split("-")[1]) == 8
-    text = (REPO_ROOT / "policy" / "policy.yaml").read_text(encoding="utf-8")
+    text = (POLICY_FIXTURE).read_text(encoding="utf-8")
     crlf = parse_policy(text.replace("\n", "\r\n"))
     assert crlf.policy_version == policy.policy_version
     assert parse_policy(text + "\n# cambio\n").policy_version != policy.policy_version

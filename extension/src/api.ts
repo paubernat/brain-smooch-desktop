@@ -8,7 +8,7 @@ import {
   type OpenOptionsMessage,
   type OptionsSection,
 } from './api-messages';
-import type { FeedbackSummary, FichaPayload, FichaResponse, Label, LabelResponse } from './types';
+import type { FeedbackSummary, FichaPayload, FichaResponse, Label, LabelResponse, LiveVerdict } from './types';
 
 async function call<T>(method: HttpMethod, path: string, body?: unknown): Promise<ApiResult<T>> {
   const msg: ApiRequestMessage = { type: 'bsd-api', method, path, body };
@@ -26,6 +26,10 @@ export const api = {
   getFicha: (videoId: string) => call<FichaResponse>('GET', `/fichas/${encodeURIComponent(videoId)}`),
   postLabel: (videoId: string, label: Label, reason?: string) =>
     call<LabelResponse>('POST', '/labels', reason ? { video_id: videoId, label, reason } : { video_id: videoId, label }),
+  /** Live judge: rule, cache or a judge call (the service caches it). */
+  requestVerdict: (videoId: string) => call<LiveVerdict>('POST', `/verdicts/${encodeURIComponent(videoId)}`),
+  /** Latest verdict without calling the judge (404 if there is none yet). */
+  getVerdict: (videoId: string) => call<LiveVerdict>('GET', `/verdicts/${encodeURIComponent(videoId)}`),
   /** Pending-label counts for the panel badge (without the item list). */
   feedbackSummary: () => call<FeedbackSummary>('GET', FEEDBACK_SUMMARY_PATH),
   openOptions: (section?: OptionsSection) => {

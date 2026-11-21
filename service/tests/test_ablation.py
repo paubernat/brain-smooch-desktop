@@ -8,7 +8,7 @@ import pytest
 import respx
 
 from app import db
-from app.config import REPO_ROOT, Settings
+from app.config import Settings
 from app.judges.base import JudgeError, RetryableJudgeError
 from app.models import ChannelInfo, FichaIn, FichaView, Label, Verdict
 from app.policy import Policy, load_policy, parse_policy
@@ -16,7 +16,7 @@ from app.pricing import ModelPrice, Pricing
 from eval import ablation
 from eval.configs import config_levels
 from eval.report import write_report
-from tests.helpers import ficha_payload
+from tests.helpers import POLICY_FIXTURE, ficha_payload
 
 # (video_id, channel_id, label, labeled_at, split, is_short, transcript_status)
 VIDEOS = [
@@ -66,7 +66,7 @@ class FlakyJudge(FakeJudge):
 
 @pytest.fixture
 def policy() -> Policy:
-    return load_policy(REPO_ROOT / "policy" / "policy.yaml")
+    return load_policy(POLICY_FIXTURE)
 
 
 @pytest.fixture
@@ -154,7 +154,7 @@ async def test_verdict_cache_avoids_repeated_calls(seeded: db.Database, policy: 
     assert len(judge.calls) == 5 and again.calls == 0
     assert all(r.cached for r in again.records) and len(again.records) == 5
 
-    text = (REPO_ROOT / "policy" / "policy.yaml").read_text(encoding="utf-8")
+    text = (POLICY_FIXTURE).read_text(encoding="utf-8")
     changed = parse_policy(text + "\n# v2\n")
     await ablation.run_jobs(seeded, jobs, changed, sleep=no_sleep)
     assert len(judge.calls) == 10  # nueva policy_version → nuevas llamadas

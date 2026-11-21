@@ -76,7 +76,7 @@ code, .mono { font-family: var(--mono); font-size: 13px; }
 .hero { text-align: center; margin: 32px auto 36px; max-width: 640px; }
 .hero h1 { font-size: 38px; }
 .eyebrow { text-transform: uppercase; letter-spacing: 0.14em; font-size: 12px; font-weight: 700; color: var(--accent); }
-.mode-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; max-width: 860px; margin: 0 auto; }
+.mode-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; max-width: 860px; margin: 0 auto; }
 .mode-card {
   display: flex; flex-direction: column; gap: 6px; padding: 28px;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
@@ -237,6 +237,11 @@ table.errors a:hover { color: var(--accent); }
 .calibration-card > header { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
 .calibration-card > header .mode-icon { margin: 0; }
 .calibration-card > header h2 { margin: 0; }
+.same-policy-note { text-align: center; margin: 14px auto 0; }
+.reveal-row { margin-top: 16px; }
+.reveal-row p { margin: 4px 0 0; }
+.tester-pane { margin: 0 0 18px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.tester-pane h3 { margin-top: 0; }
 .calibration-summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin: 12px 0; }
 .pending-count { font-size: 18px; margin: 0 0 6px; }
 .pills { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 6px; }

@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     pricing_path: Path = REPO_ROOT / "service" / "pricing.yaml"
     policy_author_model: str = "claude-sonnet-5-5"  # editor agéntico de la política
     policy_author_timeout_s: float = 180.0
+    # Juez en directo: espera máxima a L2/L4 antes de decidir con lo que haya.
+    live_wait_s: float = 8.0
+    live_poll_s: float = 0.5
 
     @property
     def db_path(self) -> Path:

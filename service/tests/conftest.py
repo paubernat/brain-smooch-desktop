@@ -6,7 +6,8 @@ import pytest
 import respx
 
 from app import db
-from app.config import REPO_ROOT, Settings
+from app.config import Settings
+from tests.helpers import POLICY_FIXTURE
 
 
 @pytest.fixture
@@ -31,7 +32,7 @@ def policy_settings(settings: Settings) -> Settings:
     """Copia de `policy/policy.yaml` en tmp y claves falsas (los tests nunca llaman a nadie)."""
     policy_dir = settings.data_dir.parent / "policy"
     policy_dir.mkdir(parents=True)
-    shutil.copy(REPO_ROOT / "policy" / "policy.yaml", policy_dir / "policy.yaml")
+    shutil.copy(POLICY_FIXTURE, policy_dir / "policy.yaml")
     settings.policy_path = policy_dir / "policy.yaml"
     settings.policy_history_dir = policy_dir / "history"
     settings.anthropic_api_key = "sk-test"

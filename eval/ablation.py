@@ -66,10 +66,14 @@ class Job:
         return self.video.ficha.video_id
 
 
-def load_dataset(database: db.Database, split: Split | None) -> list[LabeledVideo]:
+def load_dataset(
+    database: db.Database, split: Split | None, *, include_seen: bool = False
+) -> list[LabeledVideo]:
+    """Vídeos etiquetados. Por defecto sin los etiquetados después de ver el veredicto del
+    juez en directo (`verdict_seen_before_label`): esa etiqueta ya no mide al modelo."""
     videos: list[LabeledVideo] = []
     with database.connect() as conn:
-        for video_id in db.list_labeled_video_ids(conn, split):
+        for video_id in db.list_labeled_video_ids(conn, split, include_seen=include_seen):
             ficha = db.load_ficha(conn, video_id)
             if ficha is None or ficha.label is None:
                 continue
@@ -98,36 +102,59 @@ def build_jobs(
     for judge in judges:
         for config in configs:
             for video in videos:
-                view = build_view(database, video, config)
-                if not judge.supports_images:
-                    view.images = None
+                view = judge_view(build_view(database, video, config), judge)
                 jobs.append(Job(video, judge, config, view))
     return jobs
 
 
-def cached_verdict(database: db.Database, job: Job, policy: Policy) -> Verdict | None:
+def find_cached(
+    database: db.Database, video_id: str, judge: Judge, config: str, policy: Policy
+) -> Verdict | None:
+    """Caché de veredictos: (video_id, judge, model, config, policy_version)."""
     with database.connect() as conn:
         return db.find_verdict(
             conn,
-            video_id=job.video_id,
-            judge=job.judge.provider,
-            model=job.judge.model,
-            config=job.config,
+            video_id=video_id,
+            judge=judge.provider,
+            model=judge.model,
+            config=config,
             policy_version=policy.policy_version,
         )
 
 
-def store_verdict(database: db.Database, job: Job, policy: Policy, verdict: Verdict) -> None:
+def store_cached(
+    database: db.Database,
+    video_id: str,
+    judge: Judge,
+    config: str,
+    policy: Policy,
+    verdict: Verdict,
+) -> None:
     with database.connect() as conn:
         db.insert_verdict(
             conn,
-            video_id=job.video_id,
-            judge=job.judge.provider,
-            model=job.judge.model,
-            config=job.config,
+            video_id=video_id,
+            judge=judge.provider,
+            model=judge.model,
+            config=config,
             policy_version=policy.policy_version,
             verdict=verdict,
         )
+
+
+def judge_view(view: FichaView, judge: Judge) -> FichaView:
+    """Sin imágenes para los jueces que no las admiten."""
+    if not judge.supports_images:
+        view.images = None
+    return view
+
+
+def cached_verdict(database: db.Database, job: Job, policy: Policy) -> Verdict | None:
+    return find_cached(database, job.video_id, job.judge, job.config, policy)
+
+
+def store_verdict(database: db.Database, job: Job, policy: Policy, verdict: Verdict) -> None:
+    store_cached(database, job.video_id, job.judge, job.config, policy, verdict)
 
 
 # --- dry-run -----------------------------------------------------------------------------------
@@ -304,6 +331,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--db", type=Path, default=None, help="SQLite path (default: data/)")
     parser.add_argument("--out", type=Path, default=REPORTS_DIR, help="reports directory")
     parser.add_argument("--no-report", action="store_true")
+    parser.add_argument("--include-seen", action="store_true",
+                        help="include labels given after seeing the live verdict")  # fmt: skip
     args = parser.parse_args(argv)
     args.models = parse_list(args.models)
     args.configs = parse_list(args.configs)
@@ -326,8 +355,13 @@ async def run(args: argparse.Namespace, settings: Settings) -> int:
     database.init()
     policy = load_policy(settings.policy_path)
     pricing = load_pricing(settings.pricing_path)
-    videos = load_dataset(database, args.split)
+    videos = load_dataset(database, args.split, include_seen=args.include_seen)
     print(f"{len(videos)} labeled videos in split {args.split!r}; policy {policy.policy_version}")
+    with database.connect() as conn:
+        seen = db.count_seen_labels(conn, args.split)
+    if seen:
+        action = "included (--include-seen)" if args.include_seen else "excluded"
+        print(f"{seen} labels given after seeing the live verdict: {action}")
 
     async with httpx.AsyncClient(timeout=settings.judge_timeout_s) as client:
         judges = [

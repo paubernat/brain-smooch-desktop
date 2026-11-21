@@ -36,6 +36,13 @@ export const PANEL_CSS = `
 .signal { padding: 0 4px; border-radius: 4px; font-size: 10px; font-weight: 700; letter-spacing: 0.03em; }
 .signal.ai { background: #4c1d95; color: #ddd6fe; }
 .signal.live { background: #991b1b; color: #fee2e2; }
+.verdict { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; margin-bottom: 6px; min-width: 0; font-size: 12px; }
+.verdict.muted { color: #9ca3af; font-style: italic; }
+.verdict.error { color: #fca5a5; }
+.verdict-main { font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.verdict-note { padding: 0 4px; border-radius: 4px; background: #374151; color: #d1d5db; font-size: 10px; }
+.verdict-match { font-size: 11px; }
+.verdict-match.yes { color: #86efac; } .verdict-match.no { color: #fca5a5; }
 .buttons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin-bottom: 6px; }
 button {
   font: inherit; color: #f9fafb; cursor: pointer; margin: 0;

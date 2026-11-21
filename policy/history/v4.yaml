@@ -1,0 +1,57 @@
+# Política de decisión (PLAN §8). Editable a mano o desde «Configura tu perfil» en la
+# extensión. Cada guardado sube `version`; las anteriores quedan en policy/history/.
+version: 4
+question:
+  id: tier
+  type: choice
+  instructions: >-
+    Clasifica este vídeo de YouTube según cómo quiere usar YouTube su dueño: formación y música de calidad
+    sin límite, entretenimiento largo y con sustancia con cupo, y nada de contenido adictivo, viral o
+    de relleno. Primero aplica la lista de canales; si no hay regla, compara la ficha con los criterios
+    de cada opción. Ante la duda, LIMITADO.
+  options:
+    "NO":
+      description: >-
+        Videojuegos (en especial League of Legends y esports; también GTA 6 jugado por streamers) y deportes
+        de cualquier tipo (NBA, tenis de mesa, disc golf). Shorts de relleno de cualquier temática (cuentos
+        resumidos, salud sensacionalista, trucos de dibujo, clips virales, vídeos de IA). Recopilaciones
+        de memes o frases, retos, sketches y shows de youtubers de humor (Druski, NDL), listas sensacionalistas
+        de música, contenido de IA genérico. Un canal de la lista LIMITADO prevalece sobre estos criterios.
+    LIMITADO:
+      description: >-
+        Entretenimiento largo con cupo: commentary, humor, vlogs, podcasts y shows de creadores aceptados
+        (The Yard, dunkey, Ludwig), reseñas humorísticas de juegos de esos canales, experimentos o inventos
+        DIY (I did a thing) y explicadores de geopolítica o temas militares (WarFronts). Ante la duda
+        entre NO, LIMITADO y LIBRE, LIMITADO. Si algo parece NO por ser gaming o deporte pero es de un
+        canal listado aquí, LIMITADO.
+    LIBRE:
+      description: >-
+        Música con sustancia: alguien tocando (piano, jazz) con los acordes o la partitura en pantalla,
+        explicaciones de acordes, voicings, armonía o melodía, transcripciones, covers y tutoriales de
+        cómo tocar temas. Técnico de calidad: arquitectura de software, tutoriales de Azure, IA explicada
+        con rigor por fuentes con criterio (canales que hablan de las cosas con propiedad, p. ej. Fireship
+        o DeepSeek). Shorts incluidos si cumplen esto.
+auxiliary_questions:
+- id: is_music_education
+  type: boolean
+  instructions: ¿Enseña o muestra música con sustancia (acordes, armonía, partitura, tutorial)?
+- id: is_gaming
+  type: boolean
+  instructions: ¿Trata principalmente sobre videojuegos?
+- id: is_sports
+  type: boolean
+  instructions: ¿Trata principalmente sobre deportes?
+- id: is_low_effort_listicle
+  type: boolean
+  instructions: >-
+    ¿Es una lista sensacionalista, recopilación o contenido de relleno de bajo esfuerzo?
+- id: is_short_viral_filler
+  type: boolean
+  instructions: ¿Es un Short viral o de relleno sin relación con música o tecnología de calidad?
+channel_lists:
+  "NO": []
+  LIMITADO: [Atrioc, dunkey, Ludwig, The Yard, Good Work, Cheese Factory, geopold, orslok, WarFronts]
+  LIBRE: [Fireship, DeepSeek]
+rules:
+  block_ai_labeled: false
+  block_live: false

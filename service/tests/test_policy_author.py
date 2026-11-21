@@ -16,6 +16,7 @@ from app.judges.base import RetryableJudgeError
 from app.models import Label
 from app.policy import PolicyContent, load_policy
 from app.pricing import load_pricing
+from tests.helpers import POLICY_FIXTURE
 
 DRAFT_OUTPUT = {
     "instructions": "Clasifica el vídeo según el uso que quiere hacer el usuario de YouTube.",
@@ -51,7 +52,7 @@ async def no_sleep(_: float) -> None:
 
 @pytest.fixture
 def base() -> PolicyContent:
-    return load_policy(REPO_ROOT / "policy" / "policy.yaml").content()
+    return load_policy(POLICY_FIXTURE).content()
 
 
 @pytest.fixture

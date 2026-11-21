@@ -1,6 +1,7 @@
 // Floating label panel: NO / LIMITADO / LIBRE + optional reason + level
 // status (L1..L4) + pending-feedback badge + "IA" / "LIVE" badges for the
-// current video. Isolated from YouTube's CSS with a
+// current video, and the live verdict of the model ("Modelo: LIBRE · 87 %").
+// Isolated from YouTube's CSS with a
 // closed Shadow DOM. Shortcuts: Alt+1 / Alt+2 / Alt+3 (see shortcuts.ts).
 //
 // The label buttons are never `disabled`: a disabled button swallows clicks
@@ -9,6 +10,7 @@
 import { LABELS, type Label, type LabelInfo, type LevelStatus, type Metadata } from '../types';
 import { PANEL_CSS } from './panel-styles';
 import { SHORTCUTS, shortcutLabel } from './shortcuts';
+import { verdictDisplay, type VerdictState } from './verdict-view';
 
 export type StatusKind = 'info' | 'ok' | 'error';
 
@@ -80,10 +82,12 @@ export class LabelPanel {
   private readonly signalsEl = h('span', 'signals');
   private readonly reasonEl = h('input');
   private readonly statusEl = h('div', 'status');
+  private readonly verdictEl = h('div', 'verdict hidden');
   private readonly calibrationEl = h('button', 'link calibrate hidden');
   private readonly buttons = new Map<Label, HTMLButtonElement>();
   private videoId: string | null = null;
   private current: LabelInfo | null = null;
+  private verdict: VerdictState = { kind: 'idle' };
 
   constructor(private readonly handlers: PanelHandlers) {
     this.host.id = 'brain-smooch-desktop-panel';
@@ -132,7 +136,7 @@ export class LabelPanel {
     const body = h('div', 'body');
     const titleRow = h('div', 'title-row');
     titleRow.append(this.signalsEl, this.titleEl);
-    body.append(titleRow, row, this.reasonEl, this.statusEl, this.calibrationEl, hint);
+    body.append(titleRow, this.verdictEl, row, this.reasonEl, this.statusEl, this.calibrationEl, hint);
     this.panel.append(head, body);
     this.setLevels({});
   }
@@ -152,6 +156,7 @@ export class LabelPanel {
       this.current = null;
       this.renderLabel();
       this.setSignals([]);
+      this.setVerdict({ kind: 'idle' });
     }
     this.videoId = videoId;
     this.titleEl.textContent = title || videoId;
@@ -198,6 +203,16 @@ export class LabelPanel {
     this.renderLabel();
   }
 
+  /** Live verdict of the model for the current video. */
+  setVerdict(state: VerdictState): void {
+    this.verdict = state;
+    this.renderVerdict();
+  }
+
+  verdictState(): VerdictState {
+    return this.verdict;
+  }
+
   /** Badge with the pending count; a hint to refresh the policy past the threshold. */
   setPending(feedback: PendingFeedback | null): void {
     const pending = feedback?.pending ?? 0;
@@ -225,6 +240,18 @@ export class LabelPanel {
     this.buttons.forEach((b, l) => b.classList.toggle('selected', l === label));
     this.currentEl.textContent = label ?? '';
     this.currentEl.className = `current ${label ? `${label}-text` : ''}`;
+    this.renderVerdict(); // the match with the label may have changed
+  }
+
+  private renderVerdict(): void {
+    const d = verdictDisplay(this.verdict, this.current?.label ?? null);
+    this.verdictEl.className = `verdict ${d.tone}${d.text ? '' : ' hidden'}`;
+    this.verdictEl.title = d.title;
+    const main = h('span', `verdict-main ${d.tier ? `${d.tier}-text` : ''}`, d.text);
+    const extras: HTMLElement[] = [];
+    if (d.note) extras.push(h('span', 'verdict-note', d.note));
+    if (d.match) extras.push(h('span', `verdict-match ${d.match}`, d.match === 'yes' ? '✓ coincide' : '✗ no coincide'));
+    this.verdictEl.replaceChildren(main, ...extras);
   }
 
   private submit(label: Label): void {

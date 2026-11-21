@@ -121,6 +121,37 @@ export interface LabelResponse {
   reason: string | null;
   split: 'dev' | 'test';
   labeled_at: string;
+  /** The live verdict had been shown before this label (excluded from the ablation). */
+  verdict_seen_before_label?: boolean;
+}
+
+export type Reveal = 'after_label' | 'always';
+
+/** Live judge settings (GET/PUT /settings/live). */
+export interface LiveSettings {
+  judge: string;
+  config: string;
+  reveal: Reveal;
+}
+
+/** POST/GET /verdicts/{video_id}. Hidden (`revealed: false`) carries no label nor probs. */
+export interface LiveVerdict {
+  video_id: string;
+  revealed: boolean;
+  reveal: Reveal;
+  label: Label | null;
+  confidence: number | null;
+  probs: Record<Label, number> | null;
+  source: 'rule' | 'model' | null;
+  rule: 'channel_list' | 'block_live' | 'block_ai_labeled' | null;
+  reason: string | null;
+  judge: string;
+  config: string;
+  partial: boolean;
+  cached: boolean;
+  cost_usd: number;
+  latency_ms: number;
+  policy_version: string;
 }
 
 /** A label not yet incorporated into the policy (GET /policy/feedback). */

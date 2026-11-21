@@ -1,0 +1,45 @@
+version: 3
+question:
+  id: tier
+  type: choice
+  instructions: >
+    Clasifica este vídeo de YouTube según cómo quiere usar YouTube su dueño:
+    formación y música de calidad sin límite, algo de entretenimiento con cupo,
+    y nada de contenido adictivo o de baja calidad.
+  options:
+    NO:
+      description: >
+        Videojuegos (en especial League of Legends), deportes (NBA y similares),
+        Shorts de relleno de cualquier temática ("slop"), listas sensacionalistas de música
+        tipo "TODAS LAS MELODÍAS DEL MUNDO", contenido de IA genérico o de bajo esfuerzo.
+    LIMITADO:
+      description: >
+        Entretenimiento de creadores concretos que el usuario acepta con cupo de tiempo:
+        commentary, humor, análisis ligero, vlogs. Si hay duda entre NO/LIMITADO/LIBRE, LIMITADO.
+    LIBRE:
+      description: >
+        Música con sustancia: alguien tocando (piano, jazz) con los acordes o la partitura en pantalla,
+        explicaciones de acordes, voicings, armonía o melodía, transcripciones, covers y tutoriales
+        de cómo tocar temas. Técnico de calidad: arquitectura de software, tutoriales de Azure,
+        IA explicada con rigor por fuentes con criterio (canales que hablan de las cosas con propiedad,
+        p. ej. Fireship o DeepSeek). Shorts incluidos si cumplen esto.
+auxiliary_questions:          # ayudan a depurar; no deciden el veredicto (van en la misma llamada)
+  - id: is_music_education
+    type: boolean
+    instructions: ¿Enseña o muestra música con sustancia (acordes, armonía, partitura, tutorial)?
+  - id: is_gaming
+    type: boolean
+    instructions: ¿Trata principalmente sobre videojuegos?
+  - id: is_sports
+    type: boolean
+    instructions: ¿Trata principalmente sobre deportes?
+  - id: is_low_effort_listicle
+    type: boolean
+    instructions: ¿Es una lista sensacionalista o contenido de relleno de bajo esfuerzo?
+channel_lists:                # reglas fijas; se aplican antes del modelo
+  LIMITADO: [Atrioc, dunkey, Ludwig, The Yard, Good Work, Cheese Factory, geopold, orslok]  # TODO: confirmar nombres y pasar a channel_id
+  LIBRE: [Fireship, DeepSeek]  # TODO: completar
+  NO: []
+rules:                        # reglas fijas (producción); no participan en la ablación
+  block_ai_labeled: false     # NO a vídeos con la etiqueta de YouTube «Contenido alterado o sintético»
+  block_live: false           # NO a directos en curso y programados (las grabaciones, el modelo)

@@ -5,6 +5,7 @@ import {
   OPTIONS_SECTIONS,
   isApiRequest,
   isOpenOptions,
+  timeoutFor,
   type ApiRequestMessage,
   type ApiResult,
   type OpenOptionsMessage,
@@ -13,7 +14,7 @@ import { fetchService } from './service-http';
 
 async function callService(msg: ApiRequestMessage): Promise<ApiResult<unknown>> {
   if (!ALLOWED_PATHS.test(msg.path)) return { ok: false, status: null, error: `path not allowed: ${msg.path}` };
-  return fetchService(msg.method, msg.path, msg.body);
+  return fetchService(msg.method, msg.path, msg.body, timeoutFor(msg.path));
 }
 
 /** A section opens in a new tab at options.html#<section>; otherwise the usual options page. */

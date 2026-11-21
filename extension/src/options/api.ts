@@ -2,7 +2,7 @@
 // (moz-extension://), which the service allows by CORS, so it fetches directly.
 import type { ApiResult } from '../api-messages';
 import { fetchService } from '../service-http';
-import type { FeedbackSummary } from '../types';
+import type { FeedbackSummary, LiveSettings } from '../types';
 import type {
   DraftResult,
   EditResult,
@@ -55,4 +55,6 @@ export const optionsApi = {
     fetchService<EditResult>('POST', '/policy/edit', { policy, instruction }, LLM_TIMEOUT_MS),
   judges: () => fetchService<JudgesOut>('GET', '/judges'),
   labelStats: () => fetchService<LabelStats>('GET', '/labels/stats'),
+  liveSettings: () => fetchService<LiveSettings>('GET', '/settings/live'),
+  saveLiveSettings: (settings: LiveSettings) => fetchService<LiveSettings>('PUT', '/settings/live', settings),
 };

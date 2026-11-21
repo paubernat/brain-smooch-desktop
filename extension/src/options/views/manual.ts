@@ -3,10 +3,12 @@ import { optionsApi } from '../api';
 import { AiEditBox } from '../components/ai-edit';
 import { viewHeader } from '../components/header';
 import { PolicyEditor } from '../components/policy-editor';
+import { DEV_ONLY_NOTE, memorySession, mountTester, type PolicyTester } from '../components/policy-tester';
 import { errorNotice, notice, show, spinner } from '../components/status';
 import { button, h, withBusy } from '../dom';
 import { plural, shortDate } from '../format';
 import { validateForm } from '../policy-form';
+import { initialTuneState, type TuneState } from '../tune-state';
 import type { PolicyOut } from '../types';
 
 export function renderManual(): HTMLElement {
@@ -43,14 +45,23 @@ class ManualEditor {
   private readonly status = h('div', { className: 'status-slot' });
   private readonly meta = h('p', { className: 'muted small' });
   private readonly aiEdit: AiEditBox;
+  private readonly testerPane = h('section', { className: 'tester-pane hidden' });
+  private readonly testerTrigger = button('🧪 Probar política', () => this.toggleTester());
+  private tester: PolicyTester<TuneState> | null = null;
 
   constructor(body: HTMLElement, policy: PolicyOut) {
     this.policy = policy;
-    this.editor = new PolicyEditor(policy.content, { showChannels: true });
+    this.editor = new PolicyEditor(policy.content, { showChannels: true, onChange: (p) => this.tester?.setDraft(p) });
     this.yamlArea.value = policy.yaml;
     this.yamlToggle.addEventListener('change', () => this.toggleYaml());
-    this.aiEdit = new AiEditBox({ getPolicy: () => this.editor.getPolicy(), setPolicy: (p) => this.editor.setPolicy(p) });
-    this.formPane.append(this.aiEdit.element, this.editor.element);
+    this.aiEdit = new AiEditBox({
+      getPolicy: () => this.editor.getPolicy(),
+      setPolicy: (p) => {
+        this.editor.setPolicy(p);
+        this.tester?.setDraft(p);
+      },
+    });
+    this.formPane.append(this.aiEdit.element, this.testerPane, this.editor.element);
     this.yamlPane.append(
       notice('info', 'Modo avanzado: se guarda el YAML tal cual (el servicio lo valida). Los cambios sin guardar del formulario no aparecen aquí, y viceversa.'),
       this.yamlArea,
@@ -59,7 +70,7 @@ class ManualEditor {
     const toolbar = h(
       'div',
       { className: 'toolbar' },
-      h('div', { className: 'toolbar-group' }, h('label', { className: 'switch' }, this.yamlToggle, h('span', { text: 'YAML avanzado' })), this.aiEdit.trigger),
+      h('div', { className: 'toolbar-group' }, h('label', { className: 'switch' }, this.yamlToggle, h('span', { text: 'YAML avanzado' })), this.aiEdit.trigger, this.testerTrigger),
       this.meta,
     );
     body.replaceChildren(toolbar, this.formPane, this.yamlPane, h('div', { className: 'actions sticky' }, this.status, save));
@@ -71,6 +82,19 @@ class ManualEditor {
     this.formPane.classList.toggle('hidden', yaml);
     this.yamlPane.classList.toggle('hidden', !yaml);
     this.aiEdit.trigger.classList.toggle('hidden', yaml); // the AI edits the form, not the raw YAML
+    this.testerTrigger.classList.toggle('hidden', yaml);
+  }
+
+  /** "Probar política" on the form as it is now (unsaved edits included). */
+  private toggleTester(): void {
+    const open = this.testerPane.classList.toggle('hidden') === false;
+    if (!open || this.tester) return;
+    const slot = h('div');
+    this.testerPane.replaceChildren(h('h3', { text: 'Probar política' }), notice('info', DEV_ONLY_NOTE), slot);
+    const session = memorySession(initialTuneState(this.editor.getPolicy()));
+    void mountTester(slot, session, { showEditor: false, onAccept: (p) => this.editor.setPolicy(p) }).then((tester) => {
+      this.tester = tester;
+    });
   }
 
   private async save(): Promise<void> {

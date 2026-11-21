@@ -9,6 +9,7 @@ from app import db
 from app.config import Settings
 from app.enrich.channel import ChannelEnricher
 from app.enrich.pipeline import EnrichmentPipeline
+from app.live_judge import LiveJudge
 from app.policy_store import PolicyStore
 
 
@@ -20,6 +21,7 @@ class AppState:
     channels: ChannelEnricher
     client: httpx.AsyncClient
     policies: PolicyStore
+    live: LiveJudge
 
 
 def get_ctx(request: Request) -> AppState:
