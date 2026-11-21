@@ -1,0 +1,15 @@
+# Precios orientativos (USD por millón de tokens). Editables; los jueces los leen de aquí.
+# Fuente: PLAN.md §9.2. Ninguno de estos modelos cobra la salida.
+models:
+  liquid/d1.2-ultra:
+    input_per_mtok: 0.042
+    output_per_mtok: 0.0
+  liquid/d1.2:
+    input_per_mtok: 0.02
+    output_per_mtok: 0.0
+  openai/decisions:       # modelo gpt-6-luna
+    input_per_mtok: 0.10
+    output_per_mtok: 0.0
+  # anthropic/sonnet:     # opcional, solo experimentos; rellenar con el precio vigente
+  #   input_per_mtok: null
+  #   output_per_mtok: null
