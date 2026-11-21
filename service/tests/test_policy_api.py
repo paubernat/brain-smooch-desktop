@@ -109,6 +109,17 @@ def test_put_yaml_and_invalid(client: TestClient) -> None:
     assert client.put("/policy", json={}).status_code == 422
 
 
+def test_put_blocked_sites(client: TestClient) -> None:
+    content = client.get("/policy").json()["content"]
+    assert content["blocked_sites"] == []
+    content["blocked_sites"] = ["https://www.reddit.com/r/x", "twitch.tv"]
+    body = client.put("/policy", json={"content": content}).json()
+    assert body["content"]["blocked_sites"] == ["reddit.com", "twitch.tv"]
+    assert client.get("/policy").json()["content"]["blocked_sites"] == ["reddit.com", "twitch.tv"]
+    content["blocked_sites"] = ["localhost"]
+    assert client.put("/policy", json={"content": content}).status_code == 422
+
+
 def test_cors_allows_put(client: TestClient) -> None:
     headers = {"Origin": "moz-extension://abc", "Access-Control-Request-Method": "PUT"}
     assert client.options("/policy", headers=headers).status_code == 200

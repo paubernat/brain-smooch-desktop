@@ -92,6 +92,24 @@ describe('LabelPanel', () => {
     expect(hint().classList.contains('hidden')).toBe(false);
     expect(hint().textContent).toContain('Refresca tu política');
   });
+
+  it('pins the channel: hidden without a channel, shows its tier, dispatches the clicked tier', () => {
+    const pinned: Label[] = [];
+    const dom2 = installFakeDom();
+    const p = new LabelPanel({ ...handlers(), onChannelTier: (label) => pinned.push(label) });
+    p.mount();
+    p.setVideo('abcdefghijk', 'Un vídeo');
+    const row = () => dom2.documentElement.findAll((el) => el.classList.contains('channel-row'))[0]!;
+    const pins = () => dom2.documentElement.findAll((el) => el.tagName === 'button' && el.classList.contains('pin'));
+    expect(row().classList.contains('hidden')).toBe(true);
+    p.setChannel('Atrioc', 'LIMITADO');
+    expect(row().classList.contains('hidden')).toBe(false);
+    expect(pins().map((b) => b.classList.contains('selected'))).toEqual([false, true, false]);
+    pins()[2]!.click();
+    expect(pinned).toEqual(['LIBRE']);
+    p.setVideo('bbbbbbbbbbb', 'Otro');
+    expect(row().classList.contains('hidden')).toBe(true);
+  });
 });
 
 describe('signal badges', () => {

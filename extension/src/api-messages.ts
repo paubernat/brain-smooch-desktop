@@ -32,8 +32,9 @@ export type ApiResult<T> =
 
 export const DEFAULT_SERVICE_PORT = 8765;
 export const FEEDBACK_SUMMARY_PATH = '/policy/feedback?items=false';
+export const POLICY_PATH = '/policy';
 export const ALLOWED_PATHS =
-  /^\/(health|fichas(\/[A-Za-z0-9_-]{11})?|verdicts\/[A-Za-z0-9_-]{11}|labels(\/stats)?|policy\/feedback\?items=false)$/;
+  /^\/(health|fichas(\/[A-Za-z0-9_-]{11})?|verdicts\/[A-Za-z0-9_-]{11}|labels(\/stats)?|policy|policy\/feedback\?items=false)$/;
 
 /** The live verdict may wait for enrichment (≤ 8 s) and then for the judge (with retries). */
 export const VERDICT_TIMEOUT_MS = 120_000;
@@ -42,9 +43,11 @@ export function timeoutFor(path: string): number | undefined {
   return path.startsWith('/verdicts/') ? VERDICT_TIMEOUT_MS : undefined;
 }
 
+/** GET/POST to the allowed paths; PUT only to /policy (the panel pins channels). */
 export function isApiRequest(msg: unknown): msg is ApiRequestMessage {
   const m = msg as ApiRequestMessage;
-  return !!m && m.type === 'bsd-api' && (m.method === 'GET' || m.method === 'POST') && typeof m.path === 'string';
+  if (!m || m.type !== 'bsd-api' || typeof m.path !== 'string') return false;
+  return m.method === 'GET' || m.method === 'POST' || (m.method === 'PUT' && m.path === POLICY_PATH);
 }
 
 export function isOpenOptions(msg: unknown): msg is OpenOptionsMessage {

@@ -4,6 +4,7 @@
 import { optionsApi } from '../api';
 import { button, field, h, withBusy } from '../dom';
 import { pricePerMtok } from '../format';
+import { t } from '../i18n';
 import { MIN_DEV_LABELS, acceptProposal, pickDefaultJudge, refineRequest, withDraft, type TuneState } from '../tune-state';
 import type { JudgesOut, LabelStats, PolicyContent } from '../types';
 import { PolicyEditor } from './policy-editor';
@@ -11,8 +12,9 @@ import { errorNotice, notice, show, spinner } from './status';
 import { errorsTable, estimateLine, metricsRow, proposalPanel } from './tune-results';
 
 const EDIT_DEBOUNCE_MS = 700;
-export const DEV_ONLY_NOTE =
-  'Solo se usan tus vídeos etiquetados del split dev. El split test queda reservado para la ablación final y aquí nunca se mira.';
+export function devOnlyNote(): string {
+  return t('tester.devOnly');
+}
 
 /** Where the tester keeps its state (the wizard persists it; other views keep it in memory). */
 export interface TuneSession<S extends TuneState> {
@@ -52,8 +54,8 @@ export async function loadTuneCatalog(): Promise<TuneCatalog> {
 export function fewLabelsNotice(stats: LabelStats, ...extra: HTMLElement[]): HTMLElement {
   return notice(
     'warn',
-    h('strong', { text: `Tienes ${stats.by_split.dev} vídeos etiquetados en dev; hacen falta al menos ${MIN_DEV_LABELS}.` }),
-    h('p', { text: 'Etiqueta más vídeos con el panel de YouTube (Alt+1/2/3) y vuelve a probar.' }),
+    h('strong', { text: t('tester.fewLabels', { dev: stats.by_split.dev, min: MIN_DEV_LABELS }) }),
+    h('p', { text: t('tester.labelMore') }),
     ...extra,
   );
 }
@@ -66,10 +68,10 @@ export function mountTester<S extends TuneState>(
   catalog: Promise<TuneCatalog> = loadTuneCatalog(),
   fewLabelsExtra: HTMLElement[] = [],
 ): Promise<PolicyTester<S> | null> {
-  show(slot, spinner('Cargando jueces y etiquetas…'));
+  show(slot, spinner(t('tester.loadingCatalog')));
   return catalog.then((c) => {
     if ('error' in c) {
-      show(slot, errorNotice(c.error, c.status, 'No se pudo cargar la lista de jueces'));
+      show(slot, errorNotice(c.error, c.status, t('tester.cannotLoadJudges')));
       return null;
     }
     if (c.stats.by_split.dev < MIN_DEV_LABELS) {
@@ -103,7 +105,7 @@ export class PolicyTester<S extends TuneState> {
       this.estimateSlot,
       this.resultsSlot,
       this.proposalSlot,
-      this.editor ? h('details', { className: 'draft-details' }, h('summary', { text: 'Ver o editar la política' }), this.editor.element) : null,
+      this.editor ? h('details', { className: 'draft-details' }, h('summary', { text: t('tester.viewEdit') }), this.editor.element) : null,
     );
     this.renderAll();
   }
@@ -126,19 +128,19 @@ export class PolicyTester<S extends TuneState> {
       this.session.update({ ...this.session.state, config: configSelect.value, estimate: null, evaluation: null, proposal: null });
       this.renderAll();
     });
-    return h('div', { className: 'controls' }, field('Juez', judgeSelect), field('Niveles de información', configSelect, 'D = metadatos + canal + transcripción'));
+    return h('div', { className: 'controls' }, field(t('common.judge'), judgeSelect), field(t('common.levels'), configSelect, t('tester.levelsHint')));
   }
 
   private renderAll(): void {
     const s = this.session.state;
     if (!s.judge) {
-      show(this.estimateSlot, notice('warn', 'Ningún juez tiene clave de API configurada. Añade una en el .env de la raíz (p. ej. LIQUID_API_KEY) y reinicia el servicio.'));
+      show(this.estimateSlot, notice('warn', t('tester.noJudge')));
       return;
     }
     if (s.estimate) this.showEstimate();
     else void this.loadEstimate();
     if (s.evaluation) {
-      show(this.resultsSlot, h('h3', { text: 'Resultados en dev' }), metricsRow(s.evaluation), this.improveButton(), errorsTable(s.evaluation.errors));
+      show(this.resultsSlot, h('h3', { text: t('tester.results') }), metricsRow(s.evaluation), this.improveButton(), errorsTable(s.evaluation.errors));
     } else {
       show(this.resultsSlot);
     }
@@ -150,12 +152,12 @@ export class PolicyTester<S extends TuneState> {
   }
 
   private async loadEstimate(): Promise<void> {
-    show(this.estimateSlot, spinner('Calculando llamadas y coste…'));
+    show(this.estimateSlot, spinner(t('tester.estimating')));
     const s = this.session.state;
     const res = await optionsApi.evaluate({ content: s.draft!, judge: s.judge!, config: s.config, dry_run: true });
     if (this.stale(s)) return;
     if (!res.ok) {
-      show(this.estimateSlot, errorNotice(res.error, res.status, 'No se pudo estimar el coste'));
+      show(this.estimateSlot, errorNotice(res.error, res.status, t('tester.cannotEstimate')));
       return;
     }
     this.session.update({ ...this.session.state, estimate: res.data });
@@ -164,20 +166,20 @@ export class PolicyTester<S extends TuneState> {
 
   private showEstimate(): void {
     const e = this.session.state.estimate!;
-    const run = button(e.calls ? 'Evaluar' : 'Ver resultados', () => void withBusy(run, 'Evaluando…', () => this.evaluate()), 'primary');
+    const run = button(e.calls ? t('tester.evaluate') : t('tester.showResults'), () => void withBusy(run, t('tester.evaluating'), () => this.evaluate()), 'primary');
     show(this.estimateSlot, h('div', { className: 'estimate-row' }, estimateLine(e), run));
   }
 
   private async evaluate(): Promise<void> {
-    show(this.resultsSlot, spinner('Evaluando la política en dev… puede tardar un poco si hay muchas llamadas nuevas.'));
+    show(this.resultsSlot, spinner(t('tester.evaluatingLong')));
     const s = this.session.state;
     const res = await optionsApi.evaluate({ content: s.draft!, judge: s.judge!, config: s.config, dry_run: false });
     if (this.stale(s)) return;
     if (!res.ok) {
-      show(this.resultsSlot, errorNotice(res.error, res.status, 'La evaluación ha fallado'));
+      show(this.resultsSlot, errorNotice(res.error, res.status, t('tester.evalFailed')));
       return;
     }
-    const failures = res.data.failures ? notice('warn', `${res.data.failures} llamadas fallaron y no cuentan en las métricas.`) : null;
+    const failures = res.data.failures ? notice('warn', t('tester.failures', { n: res.data.failures })) : null;
     this.session.update({ ...this.session.state, evaluation: res.data, estimate: { ...res.data, calls: 0, cached: res.data.n_dev } });
     this.renderAll();
     if (failures) this.resultsSlot.prepend(failures);
@@ -186,20 +188,20 @@ export class PolicyTester<S extends TuneState> {
   private improveButton(): HTMLElement | null {
     const req = refineRequest(this.session.state);
     if (!req) return null;
-    const b = button('Mejorar con IA', () => void withBusy(b, 'Claude está revisando los errores…', async () => {
-      show(this.proposalSlot, spinner('Claude está revisando los errores y reescribiendo la política…'));
+    const b = button(t('tester.improve'), () => void withBusy(b, t('tester.improving'), async () => {
+      show(this.proposalSlot, spinner(t('tester.improvingLong')));
       const before = this.session.state;
       const res = await optionsApi.refine(req);
       if (this.stale(before)) return;
       if (!res.ok) {
-        show(this.proposalSlot, errorNotice(res.error, res.status, 'No se pudo mejorar la política'));
+        show(this.proposalSlot, errorNotice(res.error, res.status, t('tester.cannotImprove')));
         return;
       }
       this.session.update({ ...this.session.state, proposal: res.data });
       this.renderAll();
       this.proposalSlot.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }), 'primary');
-    return h('div', { className: 'actions inline' }, h('span', { className: 'muted small', text: 'Envía la política y los errores (resumidos) a Claude para que proponga una versión mejor.' }), b);
+    return h('div', { className: 'actions inline' }, h('span', { className: 'muted small', text: t('tester.improveHint') }), b);
   }
 
   /** The draft, judge or config changed while a request was in flight. */
@@ -226,7 +228,7 @@ export class PolicyTester<S extends TuneState> {
 export function judgeSelectFor(judges: JudgesOut, selected: string): HTMLSelectElement {
   const select = h('select');
   for (const j of judges.judges) {
-    const label = j.key_configured ? `${j.key} · ${pricePerMtok(j.input_per_mtok)}` : `${j.key} · falta ${j.key_env}`;
+    const label = j.key_configured ? `${j.key} · ${pricePerMtok(j.input_per_mtok)}` : t('tester.missingKey', { judge: j.key, env: j.key_env });
     const opt = h('option', { text: label, attrs: { value: j.key } });
     opt.disabled = !j.key_configured;
     select.append(opt);

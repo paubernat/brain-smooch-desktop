@@ -2,22 +2,25 @@
 // decide the verdict shown in the YouTube panel, and when it is revealed.
 // Every change is saved right away (PUT /settings/live).
 import { optionsApi } from '../api';
+import { corners } from '../components/frame';
 import { configSelectFor, judgeSelectFor } from '../components/policy-tester';
 import { errorNotice, notice, show, spinner } from '../components/status';
 import { field, h } from '../dom';
-import { REVEAL_EXPLANATION, describeConfig, judgeWarning } from '../live-settings';
+import { t } from '../i18n';
+import { describeConfig, judgeWarning } from '../live-settings';
 import type { LiveSettings } from '../../types';
 import type { JudgesOut } from '../types';
 
 export class LiveJudgeCard {
   readonly element = h('section', { className: 'calibration-card live-judge-card', attrs: { id: 'juez', 'aria-labelledby': 'live-judge-title' } });
-  private readonly body = h('div', {}, spinner('Cargando jueces…'));
+  private readonly body = h('div', {}, spinner(t('live.loading')));
   private readonly status = h('div', { className: 'status-slot' });
 
   constructor() {
     this.element.append(
-      h('header', {}, h('span', { className: 'mode-icon', text: '⚖', attrs: { 'aria-hidden': 'true' } }), h('h2', { text: 'Juez en directo', attrs: { id: 'live-judge-title' } })),
-      h('p', { className: 'muted', text: 'El panel de YouTube muestra el veredicto del modelo para el vídeo que estás viendo. Las reglas fijas (IA, directos, listas de canales) deciden antes que el modelo.' }),
+      ...corners(),
+      h('header', {}, h('span', { className: 'mode-icon', text: '⚖', attrs: { 'aria-hidden': 'true' } }), h('h2', { text: t('live.title'), attrs: { id: 'live-judge-title' } })),
+      h('p', { className: 'muted', text: t('live.lead') }),
       this.body,
       this.status,
     );
@@ -26,8 +29,8 @@ export class LiveJudgeCard {
 
   private async load(): Promise<void> {
     const [settings, judges] = await Promise.all([optionsApi.liveSettings(), optionsApi.judges()]);
-    if (!settings.ok) return show(this.body, errorNotice(settings.error, settings.status, 'No se pudieron leer los ajustes del juez'));
-    if (!judges.ok) return show(this.body, errorNotice(judges.error, judges.status, 'No se pudo cargar la lista de jueces'));
+    if (!settings.ok) return show(this.body, errorNotice(settings.error, settings.status, t('live.cannotRead')));
+    if (!judges.ok) return show(this.body, errorNotice(judges.error, judges.status, t('tester.cannotLoadJudges')));
     this.render(settings.data, judges.data);
   }
 
@@ -45,12 +48,12 @@ export class LiveJudgeCard {
     const save = async (next: LiveSettings) => {
       const res = await optionsApi.saveLiveSettings(next);
       if (!res.ok) {
-        show(this.status, errorNotice(res.error, res.status, 'No se pudo guardar'));
+        show(this.status, errorNotice(res.error, res.status, t('common.cannotSave')));
         return;
       }
       settings = res.data;
       showWarning();
-      show(this.status, h('p', { className: 'muted small', text: 'Guardado. Se aplica al siguiente vídeo que abras.' }));
+      show(this.status, h('p', { className: 'muted small', text: t('live.saved') }));
     };
     judgeSelect.addEventListener('change', () => void save({ ...settings, judge: judgeSelect.value }));
     configSelect.addEventListener('change', () => void save({ ...settings, config: configSelect.value }));
@@ -58,12 +61,12 @@ export class LiveJudgeCard {
     showWarning();
     show(
       this.body,
-      h('div', { className: 'controls' }, field('Juez', judgeSelect), field('Niveles de información', configSelect, 'Más niveles: más contexto, pero más coste y latencia.')),
+      h('div', { className: 'controls' }, field(t('common.judge'), judgeSelect), field(t('common.levels'), configSelect, t('live.levelsHint'))),
       h(
         'div',
         { className: 'reveal-row' },
-        h('label', { className: 'switch' }, reveal, h('span', { text: 'Mostrar el veredicto antes de etiquetar' })),
-        h('p', { className: 'muted small', text: `Por defecto queda oculto hasta que etiquetas el vídeo. ${REVEAL_EXPLANATION}` }),
+        h('label', { className: 'switch' }, reveal, h('span', { text: t('live.reveal') })),
+        h('p', { className: 'muted small', text: t('live.revealNote', { explanation: t('live.revealExplanation') }) }),
       ),
       warning,
     );

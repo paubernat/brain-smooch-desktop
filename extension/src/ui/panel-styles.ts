@@ -76,5 +76,14 @@ input {
 .status.error { color: #fca5a5; }
 .status.ok { color: #86efac; }
 .hint { color: #6b7280; font-size: 10px; }
+.channel-row { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; min-width: 0; font-size: 11px; }
+.channel-row.busy { opacity: 0.6; pointer-events: none; }
+.channel-label { flex: none; color: #9ca3af; }
+.channel-state { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #6b7280; }
+.pins { display: flex; gap: 3px; flex: none; }
+button.pin { padding: 1px 5px; font-size: 10px; font-weight: 700; background: #1f2937; border-color: #374151; }
+button.pin.NO { color: #fca5a5; } button.pin.LIMITADO { color: #fcd34d; } button.pin.LIBRE { color: #86efac; }
+button.pin.selected { border-color: currentColor; box-shadow: 0 0 0 1px currentColor inset; }
+button.pin:hover { filter: brightness(1.3); }
 .NO-text { color: #fca5a5; } .LIMITADO-text { color: #fcd34d; } .LIBRE-text { color: #86efac; }
 `;

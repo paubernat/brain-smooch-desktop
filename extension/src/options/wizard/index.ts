@@ -2,12 +2,16 @@
 import { optionsApi } from '../api';
 import { viewHeader } from '../components/header';
 import { loadTuneCatalog } from '../components/policy-tester';
+import { Statue } from '../components/statue';
 import { errorNotice, show, spinner } from '../components/status';
 import { button, h } from '../dom';
+import { t } from '../i18n';
+import { raiseLight, wizardLight } from '../progress';
+import { loadSetup, markPolicySaved, raiseStatue } from '../setup-state';
 import type { PolicyOut } from '../types';
 import type { WizardContext } from './context';
 import { loadSaved, saveSoon } from './persist';
-import { initialState, type StepId, type WizardState } from './state';
+import { initialState, wizardMilestones, type StepId, type WizardState } from './state';
 import { renderDescribe } from './step-describe';
 import { renderDraft } from './step-draft';
 import { renderSave } from './step-save';
@@ -22,29 +26,26 @@ const STEP_VIEWS: Record<StepId, (ctx: WizardContext) => HTMLElement> = {
 };
 
 export function renderWizard(): HTMLElement {
-  const body = h('div', {}, spinner('Preparando el asistente…'));
-  const root = h(
-    'div',
-    { className: 'view wizard' },
-    viewHeader('Configuración agéntica', 'Describe lo que quieres, revisa el borrador que escribe la IA y afínalo con los vídeos que ya has etiquetado.'),
-    body,
-  );
-  void start(body);
+  const body = h('div', {}, spinner(t('wizard.preparing')));
+  const statue = new Statue('robot', 0, 'small');
+  const root = h('div', { className: 'view wizard' }, viewHeader(t('wizard.title'), t('wizard.lead'), '02', statue.element), body);
+  void start(body, statue);
   return root;
 }
 
-async function start(body: HTMLElement): Promise<void> {
-  const [policy, saved] = await Promise.all([optionsApi.getPolicy(), loadSaved()]);
+async function start(body: HTMLElement, statue: Statue): Promise<void> {
+  const [policy, saved, setup] = await Promise.all([optionsApi.getPolicy(), loadSaved(), loadSetup()]);
+  statue.setLight(setup.light.agentic, false);
   if (!policy.ok) {
-    show(body, errorNotice(policy.error, policy.status, 'No se pudo leer la política'), button('Reintentar', () => {
-      show(body, spinner('Preparando el asistente…'));
-      void start(body);
+    show(body, errorNotice(policy.error, policy.status, t('common.cannotReadPolicy')), button(t('common.retry'), () => {
+      show(body, spinner(t('wizard.preparing')));
+      void start(body, statue);
     }));
     return;
   }
   const state: WizardState = { ...initialState(), ...saved };
   if (!state.draft && state.step !== 'describe') state.step = 'describe';
-  new WizardController(body, policy.data, state).render();
+  new WizardController(body, policy.data, state, statue, setup.light.agentic).render();
 }
 
 class WizardController implements WizardContext {
@@ -52,8 +53,28 @@ class WizardController implements WizardContext {
   private readonly stepSlot = h('div', { className: 'step-slot' });
   private catalogPromise: ReturnType<WizardContext['catalog']> | null = null;
 
-  constructor(body: HTMLElement, readonly policy: PolicyOut, private current: WizardState) {
+  constructor(
+    body: HTMLElement,
+    readonly policy: PolicyOut,
+    private current: WizardState,
+    private readonly statue: Statue,
+    private light: number,
+  ) {
     body.replaceChildren(this.stepperSlot, this.stepSlot);
+    this.progress(false);
+  }
+
+  /** Light the robot for the milestones reached (never dims). */
+  private progress(saved: boolean): void {
+    const next = raiseLight(this.light, wizardLight(wizardMilestones(this.current, saved)));
+    if (next === this.light) return;
+    this.light = next;
+    this.statue.setLight(next);
+    void (saved ? markPolicySaved('agentic') : raiseStatue('agentic', next));
+  }
+
+  saved(): void {
+    this.progress(true);
   }
 
   get state(): WizardState {
@@ -63,6 +84,7 @@ class WizardController implements WizardContext {
   update(next: WizardState, rerender = false): void {
     this.current = next;
     saveSoon(next);
+    this.progress(false);
     if (rerender) this.render();
   }
 

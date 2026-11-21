@@ -10,6 +10,8 @@ export interface WizardContext {
   /** Replace the state; re-render the current step only when asked. */
   update(next: WizardState, rerender?: boolean): void;
   goto(step: StepId): void;
+  /** The policy was saved from the wizard: light the robot fully. */
+  saved(): void;
   /** Loaded once per wizard session (step 3). */
   catalog(): Promise<TuneCatalog>;
 }

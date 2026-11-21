@@ -10,10 +10,13 @@
 // is shown only while its video is still the current one. With reveal
 // "after_label" the service hides it until the video is labelled, so the panel
 // asks for it again after each label.
-import { api } from './api';
+import { api, panelPolicyTransport } from './api';
+import { channelTier, withChannel } from './channel-lists';
 import { onBridgeNavigation, requestSnapshot } from './bridge-client';
 import { debugLog, dumpSpike, initDebug } from './debug';
 import { buildFicha } from './extract/ficha';
+import { initLang, t } from './options/i18n';
+import { patchPolicy } from './policy-patch';
 import type { FichaPayload, FichaResponse, Label } from './types';
 import { LabelPanel, signalBadges } from './ui/label-panel';
 import { needsReveal, verdictErrorMessage } from './ui/verdict-view';
@@ -35,6 +38,8 @@ let lastFicha: FichaPayload | null = null;
 /** Video whose ficha is saved in the service (labels can be sent right away). */
 let readyVideoId: string | null = null;
 let queued: QueuedLabel | null = null;
+/** Channel of the current video (for the 📌 control) and the list it is in. */
+let channel: { videoId: string; name: string; tier: Label | null } | null = null;
 
 const panel = new LabelPanel({
   onLabel: (label, reason) => void requestLabel(label, reason),
@@ -44,6 +49,7 @@ const panel = new LabelPanel({
   },
   onOpenSettings: () => void api.openOptions(),
   onOpenCalibration: () => void api.openOptions('calibracion'),
+  onChannelTier: (label) => void pinChannel(label),
 });
 
 function applyFicha(ficha: FichaResponse): void {
@@ -58,6 +64,7 @@ async function processVideo(ref: VideoRef): Promise<void> {
   readyVideoId = null;
   if (queued?.videoId !== ref.videoId) queued = null;
   lastFicha = null;
+  channel = null;
   panel.mount();
   panel.setVideo(ref.videoId, '');
   panel.setReady(false);
@@ -79,6 +86,7 @@ async function processVideo(ref: VideoRef): Promise<void> {
     dumpSpike(snapshot, ficha);
     panel.setVideo(ref.videoId, ficha.metadata.title);
     panel.setSignals(signalBadges(ficha.metadata));
+    void loadChannel(ref.videoId, ficha.metadata.channel_name, gen);
     panel.setLevels({ L1: 'ok', L3: ficha.transcript.status, L4: ficha.storyboard ? 'pending' : 'none' });
 
     panel.setStatus('guardando ficha…');
@@ -105,6 +113,39 @@ async function processVideo(ref: VideoRef): Promise<void> {
   } finally {
     if (!stale()) panel.setBusy(false);
   }
+}
+
+/** Shows which list (if any) the video's channel is pinned to. */
+async function loadChannel(videoId: string, name: string, gen: number): Promise<void> {
+  if (!name.trim()) return;
+  const res = await api.getPolicy();
+  if (gen !== generation) return;
+  const tier = res.ok ? channelTier(res.data.content.channel_lists ?? {}, name) : null;
+  channel = { videoId, name, tier };
+  panel.setChannel(name, tier);
+}
+
+/** 📌 Pin the channel to `label` (or unpin it if it is already there); retries on 409. */
+async function pinChannel(label: Label): Promise<void> {
+  const pinned = channel;
+  if (!pinned || pinned.videoId !== panel.currentVideo()) return;
+  const target = pinned.tier === label ? null : label;
+  panel.setChannelBusy(true);
+  panel.setStatus(t('panel.channelSaving'));
+  const res = await patchPolicy(panelPolicyTransport, (content) => {
+    const lists = content.channel_lists ?? {};
+    return channelTier(lists, pinned.name) === target ? null : { ...content, channel_lists: withChannel(lists, pinned.name, target) };
+  });
+  panel.setChannelBusy(false);
+  if (channel !== pinned) return; // the video changed meanwhile
+  if (!res.ok) {
+    panel.setStatus(`${t('panel.channelError')}: ${res.error}`, 'error');
+    return;
+  }
+  pinned.tier = channelTier(res.data.content.channel_lists ?? {}, pinned.name);
+  panel.setChannel(pinned.name, pinned.tier);
+  const done = pinned.tier ? t('panel.channelSaved', { name: pinned.name, label: pinned.tier }) : t('panel.channelRemoved', { name: pinned.name });
+  panel.setStatus(done, 'ok');
 }
 
 /** L2/L4 are completed asynchronously by the service; refresh their status. */
@@ -205,7 +246,7 @@ function checkLocation(): void {
 }
 
 async function main(): Promise<void> {
-  await initDebug();
+  await Promise.all([initDebug(), initLang()]);
   // Navigation signals; checkLocation() is idempotent per videoId.
   onBridgeNavigation(() => checkLocation());
   document.addEventListener('yt-navigate-finish', () => checkLocation());

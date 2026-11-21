@@ -1,7 +1,10 @@
 // Typed client for the local service (docs/api-contract.md). Runs in the
 // content script and forwards every call to background.ts.
+import type { ChannelLists } from './channel-lists';
+import type { PolicyTransport } from './policy-patch';
 import {
   FEEDBACK_SUMMARY_PATH,
+  POLICY_PATH,
   type ApiRequestMessage,
   type ApiResult,
   type HttpMethod,
@@ -9,6 +12,13 @@ import {
   type OptionsSection,
 } from './api-messages';
 import type { FeedbackSummary, FichaPayload, FichaResponse, Label, LabelResponse, LiveVerdict } from './types';
+
+/** The policy as the panel sees it: only the channel lists matter, the rest is sent back as is. */
+export type PanelPolicyContent = Record<string, unknown> & { channel_lists?: ChannelLists };
+export interface PanelPolicy {
+  version: number;
+  content: PanelPolicyContent;
+}
 
 async function call<T>(method: HttpMethod, path: string, body?: unknown): Promise<ApiResult<T>> {
   const msg: ApiRequestMessage = { type: 'bsd-api', method, path, body };
@@ -32,8 +42,17 @@ export const api = {
   getVerdict: (videoId: string) => call<LiveVerdict>('GET', `/verdicts/${encodeURIComponent(videoId)}`),
   /** Pending-label counts for the panel badge (without the item list). */
   feedbackSummary: () => call<FeedbackSummary>('GET', FEEDBACK_SUMMARY_PATH),
+  getPolicy: () => call<PanelPolicy>('GET', POLICY_PATH),
+  putPolicy: (content: PanelPolicyContent, expectedVersion: number) =>
+    call<PanelPolicy>('PUT', POLICY_PATH, { content, expected_version: expectedVersion }),
   openOptions: (section?: OptionsSection) => {
     const msg: OpenOptionsMessage = section ? { type: 'bsd-open-options', section } : { type: 'bsd-open-options' };
     return browser.runtime.sendMessage(msg).catch(() => undefined);
   },
+};
+
+/** For patchPolicy (read-modify-write with retry on 409). */
+export const panelPolicyTransport: PolicyTransport<PanelPolicyContent, PanelPolicy> = {
+  get: () => api.getPolicy(),
+  put: (content, expectedVersion) => api.putPolicy(content, expectedVersion),
 };

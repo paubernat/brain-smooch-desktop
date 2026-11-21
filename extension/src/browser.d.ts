@@ -42,3 +42,41 @@ declare namespace browser.tabs {
   // No "tabs" permission needed to open a tab with an extension page.
   function create(properties: { url: string; active?: boolean }): Promise<{ id?: number }>;
 }
+
+declare namespace browser.webRequest {
+  interface RequestDetails {
+    url: string;
+    type: string;
+    tabId: number;
+  }
+  interface BlockingResponse {
+    cancel?: boolean;
+    redirectUrl?: string;
+  }
+  const onBeforeRequest: {
+    addListener(
+      callback: (details: RequestDetails) => BlockingResponse | Promise<BlockingResponse>,
+      filter: { urls: string[]; types?: string[] },
+      extraInfoSpec?: 'blocking'[],
+    ): void;
+  };
+}
+
+declare namespace browser.alarms {
+  interface Alarm {
+    name: string;
+  }
+  function create(name: string, info: { periodInMinutes?: number; delayInMinutes?: number }): void;
+  const onAlarm: {
+    addListener(callback: (alarm: Alarm) => void): void;
+  };
+}
+
+declare namespace browser.permissions {
+  interface Permissions {
+    origins?: string[];
+    permissions?: string[];
+  }
+  function contains(permissions: Permissions): Promise<boolean>;
+  function request(permissions: Permissions): Promise<boolean>;
+}

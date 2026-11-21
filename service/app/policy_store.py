@@ -95,6 +95,7 @@ def _document(content: PolicyContent, version: int) -> dict[str, Any]:
             for label in Label
         },
         "rules": content.rules.model_dump(),
+        "blocked_sites": _FlowList(content.blocked_sites),
     }
 
 

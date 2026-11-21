@@ -1,10 +1,11 @@
 // Step 2: the draft from Claude, editable, side by side with the user's text.
 import { optionsApi } from '../api';
 import { AiEditBox } from '../components/ai-edit';
-import { PolicyEditor, TIER_INFO, tierHeader } from '../components/policy-editor';
+import { PolicyEditor, TIER_INFO, tierBlurb, tierHeader } from '../components/policy-editor';
 import { rationaleBox } from '../components/rationale';
 import { errorNotice, notice, show, spinner } from '../components/status';
 import { button, h, withBusy } from '../dom';
+import { t } from '../i18n';
 import { validateForm } from '../policy-form';
 import type { Preferences, TierTexts } from '../types';
 import type { WizardContext } from './context';
@@ -16,16 +17,16 @@ function userText(prefs: Preferences): HTMLElement {
   return h(
     'aside',
     { className: 'user-text' },
-    h('h3', { text: 'Lo que escribiste' }),
-    ...TIER_INFO.map(({ label, blurb }) => {
+    h('h3', { text: t('draft.youWrote') }),
+    ...TIER_INFO.map(({ label }) => {
       const key = PREF_KEY[label] ?? 'libre';
       const examples = prefs.examples[key].trim();
       return h(
         'section',
         { className: `quote tier-${label}` },
-        tierHeader(label, blurb),
-        h('p', { className: 'pre', text: prefs[key].trim() || '(vacío)' }),
-        examples ? h('p', { className: 'pre muted small', text: `Ejemplos:\n${examples}` }) : null,
+        tierHeader(label, tierBlurb(label)),
+        h('p', { className: 'pre', text: prefs[key].trim() || t('common.empty') }),
+        examples ? h('p', { className: 'pre muted small', text: t('draft.examples', { examples }) }) : null,
       );
     }),
   );
@@ -33,7 +34,7 @@ function userText(prefs: Preferences): HTMLElement {
 
 export function renderDraft(ctx: WizardContext): HTMLElement {
   const draft = ctx.state.draft;
-  if (!draft) return h('div', {}, notice('warn', 'Aún no hay borrador.'), button('← Describe', () => ctx.goto('describe')));
+  if (!draft) return h('div', {}, notice('warn', t('wizard.noDraft')), button(t('wizard.backDescribe'), () => ctx.goto('describe')));
   const status = h('div', { className: 'status-slot' });
   const editor = new PolicyEditor(draft, {
     showChannels: false,
@@ -47,11 +48,11 @@ export function renderDraft(ctx: WizardContext): HTMLElement {
     },
   });
 
-  const regenerate = button('Regenerar', () => void withBusy(regenerate, 'Regenerando…', async () => {
-    show(status, spinner('Claude está redactando otra versión…'));
+  const regenerate = button(t('draft.regenerate'), () => void withBusy(regenerate, t('draft.regenerating'), async () => {
+    show(status, spinner(t('draft.redrafting')));
     const res = await optionsApi.draft(ctx.state.preferences);
     if (!res.ok) {
-      show(status, errorNotice(res.error, res.status, 'No se pudo regenerar'));
+      show(status, errorNotice(res.error, res.status, t('draft.cannotRegenerate')));
       return;
     }
     ctx.update({ ...withDraft(ctx.state, res.data.content), rationale: res.data.rationale, changelog: [] }, true);
@@ -60,7 +61,7 @@ export function renderDraft(ctx: WizardContext): HTMLElement {
   const next = (step: 'tune' | 'save') => () => {
     const problems = validateForm(editor.getForm());
     if (problems.length) {
-      show(status, notice('warn', h('strong', { text: 'Revisa el borrador:' }), h('ul', {}, ...problems.map((p) => h('li', { text: p })))));
+      show(status, notice('warn', h('strong', { text: t('draft.review') }), h('ul', {}, ...problems.map((p) => h('li', { text: p })))));
       return;
     }
     ctx.goto(step);
@@ -70,15 +71,15 @@ export function renderDraft(ctx: WizardContext): HTMLElement {
     'div',
     { className: 'step draft' },
     rationaleBox(ctx.state.rationale, ctx.state.changelog),
-    h('div', { className: 'side-by-side' }, userText(ctx.state.preferences), h('div', { className: 'draft-pane' }, h('div', { className: 'pane-head' }, h('h3', { text: 'Borrador de la política (editable)' }), aiEdit.trigger), aiEdit.element, editor.element)),
+    h('div', { className: 'side-by-side' }, userText(ctx.state.preferences), h('div', { className: 'draft-pane' }, h('div', { className: 'pane-head' }, h('h3', { text: t('draft.paneTitle') }), aiEdit.trigger), aiEdit.element, editor.element)),
     h(
       'div',
       { className: 'actions sticky' },
       status,
-      button('← Describe', () => ctx.goto('describe'), 'ghost'),
+      button(t('wizard.backDescribe'), () => ctx.goto('describe'), 'ghost'),
       regenerate,
-      button('Guardar sin afinar', next('save')),
-      button('Afinar con ejemplos →', next('tune'), 'primary'),
+      button(t('draft.saveWithoutTuning'), next('save')),
+      button(t('draft.tune'), next('tune'), 'primary'),
     ),
   );
 }

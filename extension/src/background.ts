@@ -1,5 +1,6 @@
-// Background script: does the HTTP calls of the content scripts and opens the
-// profile page (options page) on first install or when the panel asks for it.
+// Background script: does the HTTP calls of the content scripts, opens the
+// profile page (options page) on first install or when the panel asks for it,
+// and blocks the extra websites of the policy (site-blocker.ts).
 import {
   ALLOWED_PATHS,
   OPTIONS_SECTIONS,
@@ -11,6 +12,7 @@ import {
   type OpenOptionsMessage,
 } from './api-messages';
 import { fetchService } from './service-http';
+import { startSiteBlocker } from './site-blocker';
 
 async function callService(msg: ApiRequestMessage): Promise<ApiResult<unknown>> {
   if (!ALLOWED_PATHS.test(msg.path)) return { ok: false, status: null, error: `path not allowed: ${msg.path}` };
@@ -36,3 +38,5 @@ browser.runtime.onMessage.addListener((message) => {
 browser.runtime.onInstalled.addListener(({ reason }) => {
   if (reason === 'install') void browser.runtime.openOptionsPage();
 });
+
+startSiteBlocker();

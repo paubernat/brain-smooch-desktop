@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.models import Label
 
@@ -48,6 +48,32 @@ class PolicyRules(BaseModel):
     block_live: bool = False
 
 
+_DOMAIN_LABEL = re.compile(r"^(?!-)[a-z0-9-]{1,63}(?<!-)$")
+_TLD = re.compile(r"^(?:[a-z]{2,63}|xn--[a-z0-9-]{1,59})$")
+
+
+def normalize_domain(raw: str) -> str:
+    """`https://www.Reddit.com/r/x` → `reddit.com`. ValueError si no es un dominio válido.
+
+    Misma regla que la extensión (`extension/src/sites.ts`): sin esquema, ruta, puerto ni
+    `www.`; al menos dos etiquetas y un TLD alfabético (o punycode). Las IP no valen.
+    """
+    text = raw.strip().lower()
+    text = re.sub(r"^[a-z][a-z0-9+.-]*://", "", text)
+    host = re.split(r"[/?#]", text, maxsplit=1)[0]
+    host = host.rsplit("@", 1)[-1].split(":", 1)[0].rstrip(".")
+    host = host.removeprefix("www.")
+    labels = host.split(".")
+    if (
+        len(host) > 253
+        or len(labels) < 2
+        or not all(_DOMAIN_LABEL.match(label) for label in labels)
+        or not _TLD.match(labels[-1])
+    ):
+        raise ValueError(f"invalid domain: {raw!r}")
+    return host
+
+
 class PolicyContent(BaseModel):
     """Parte editable de la política (todo menos `version` y el hash)."""
 
@@ -55,6 +81,19 @@ class PolicyContent(BaseModel):
     auxiliary_questions: list[AuxQuestion] = Field(default_factory=list)
     channel_lists: dict[Label, list[str]] = Field(default_factory=dict)
     rules: PolicyRules = Field(default_factory=PolicyRules)
+    # Webs que la extensión bloquea enteras (dominio y subdominios), fuera de YouTube. No
+    # pasan por el juez ni por la ablación; Claude nunca las cambia.
+    blocked_sites: list[str] = Field(default_factory=list)
+
+    @field_validator("blocked_sites")
+    @classmethod
+    def _normalize_sites(cls, sites: list[str]) -> list[str]:
+        out: list[str] = []
+        for site in sites:
+            domain = normalize_domain(site)
+            if domain not in out:
+                out.append(domain)
+        return out
 
 
 class Policy(PolicyContent):

@@ -3,6 +3,7 @@ import { optionsApi } from '../api';
 import { tierHeader } from '../components/policy-editor';
 import { errorNotice, notice, show, spinner } from '../components/status';
 import { button, h, textarea } from '../dom';
+import { t, type MessageKey } from '../i18n';
 import type { TierTexts } from '../types';
 import type { WizardContext } from './context';
 import { hasPreferences, withDraft } from './state';
@@ -10,29 +11,14 @@ import { hasPreferences, withDraft } from './state';
 interface TierPrompt {
   key: keyof TierTexts;
   label: 'LIBRE' | 'LIMITADO' | 'NO';
-  title: string;
-  placeholder: string;
+  title: MessageKey;
+  placeholder: MessageKey;
 }
 
 const TIERS: readonly TierPrompt[] = [
-  {
-    key: 'libre',
-    label: 'LIBRE',
-    title: 'Sí, sin límite',
-    placeholder: 'Piano jazz con los acordes en pantalla, explicaciones de armonía, tutoriales de Azure, arquitectura de software, Fireship…',
-  },
-  {
-    key: 'limitado',
-    label: 'LIMITADO',
-    title: 'Con cupo de tiempo',
-    placeholder: 'Atrioc, dunkey, Ludwig… entretenimiento de creadores que me gustan, media hora al día.',
-  },
-  {
-    key: 'no',
-    label: 'NO',
-    title: 'Nada',
-    placeholder: 'League of Legends, NBA, Shorts de relleno, slop de IA, listas sensacionalistas…',
-  },
+  { key: 'libre', label: 'LIBRE', title: 'describe.libre.title', placeholder: 'describe.libre.placeholder' },
+  { key: 'limitado', label: 'LIMITADO', title: 'describe.limitado.title', placeholder: 'describe.limitado.placeholder' },
+  { key: 'no', label: 'NO', title: 'describe.no.title', placeholder: 'describe.no.placeholder' },
 ];
 
 export function renderDescribe(ctx: WizardContext): HTMLElement {
@@ -40,41 +26,41 @@ export function renderDescribe(ctx: WizardContext): HTMLElement {
   const status = h('div', { className: 'status-slot' });
   const persist = () => ctx.update({ ...ctx.state, preferences: prefs });
 
-  const cards = TIERS.map((t) => {
+  const cards = TIERS.map((tier) => {
     const examples = h(
       'details',
       { className: 'examples' },
-      h('summary', { text: 'Vídeos de ejemplo (opcional)' }),
-      textarea(prefs.examples[t.key], 'Un título o URL por línea', 3, (v) => {
-        prefs.examples[t.key] = v;
+      h('summary', { text: t('describe.examples') }),
+      textarea(prefs.examples[tier.key], t('describe.examplesPlaceholder'), 3, (v) => {
+        prefs.examples[tier.key] = v;
         persist();
       }),
     );
-    if (prefs.examples[t.key].trim()) examples.open = true;
+    if (prefs.examples[tier.key].trim()) examples.open = true;
     return h(
       'section',
-      { className: `tier-card tier-${t.label}` },
-      tierHeader(t.label, t.title),
-      textarea(prefs[t.key], t.placeholder, 7, (v) => {
-        prefs[t.key] = v;
+      { className: `tier-card tier-${tier.label}` },
+      tierHeader(tier.label, t(tier.title)),
+      textarea(prefs[tier.key], t(tier.placeholder), 7, (v) => {
+        prefs[tier.key] = v;
         persist();
       }),
       examples,
     );
   });
 
-  const generate = button('Generar borrador con IA', () => void draft(), 'primary');
+  const generate = button(t('describe.generate'), () => void draft(), 'primary');
   async function draft(): Promise<void> {
     if (!hasPreferences(prefs)) {
-      show(status, notice('warn', 'Escribe algo en al menos una de las tres categorías.'));
+      show(status, notice('warn', t('describe.writeSomething')));
       return;
     }
     generate.disabled = true;
-    show(status, spinner('Claude está redactando tu política… suele tardar menos de un minuto.'));
+    show(status, spinner(t('describe.drafting')));
     const res = await optionsApi.draft(prefs);
     generate.disabled = false;
     if (!res.ok) {
-      show(status, errorNotice(res.error, res.status, 'No se pudo generar el borrador'));
+      show(status, errorNotice(res.error, res.status, t('describe.cannotDraft')));
       return;
     }
     const next = withDraft(ctx.state, res.data.content);
@@ -85,13 +71,13 @@ export function renderDescribe(ctx: WizardContext): HTMLElement {
   return h(
     'div',
     { className: 'step describe' },
-    h('p', { className: 'lead', text: 'Escribe con tus palabras qué quieres ver en cada categoría. No hace falta ser preciso: la IA lo convierte en una política y luego la afinamos con tus etiquetas.' }),
+    h('p', { className: 'lead', text: t('describe.lead') }),
     h('div', { className: 'tier-grid' }, ...cards),
     h(
       'div',
       { className: 'actions' },
       status,
-      ctx.state.draft ? button('Ir al borrador actual →', () => ctx.goto('draft'), 'ghost') : null,
+      ctx.state.draft ? button(t('describe.toDraft'), () => ctx.goto('draft'), 'ghost') : null,
       generate,
     ),
   );

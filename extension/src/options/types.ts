@@ -26,6 +26,8 @@ export interface PolicyContent {
   channel_lists: Partial<Record<Label, string[]>>;
   /** Absent on services older than the rules (defaults: all off). */
   rules?: PolicyRules;
+  /** Websites the extension blocks entirely (bare domains; absent on older services). */
+  blocked_sites?: string[];
 }
 
 export interface PolicyOut {

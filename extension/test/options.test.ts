@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { percent, usd } from '../src/options/format';
+import { t } from '../src/options/i18n';
 import {
   formToPolicy,
   parseChannelList,
@@ -40,11 +41,13 @@ function outcome(partial: Partial<EvalOutcome>): EvalOutcome {
 describe('policy form mapping', () => {
   it('round-trips a policy through the form', () => {
     const form = policyToForm(POLICY);
-    expect(form.channels.LIMITADO).toBe('Atrioc, dunkey');
-    expect(form.channels.NO).toBe('');
+    expect(form.channels.LIMITADO).toEqual(['Atrioc', 'dunkey']);
+    expect(form.channels.NO).toEqual([]);
+    expect(form.blockedSites).toEqual([]);
     const back = formToPolicy(form);
     expect(back.question.instructions).toBe('Clasifica este vídeo.');
     expect(back.channel_lists).toEqual({ NO: [], LIMITADO: ['Atrioc', 'dunkey'], LIBRE: ['Fireship'] });
+    expect(back.blocked_sites).toEqual([]);
     expect(back.auxiliary_questions).toEqual([{ id: 'is_gaming', type: 'boolean', instructions: '¿Videojuegos?' }]);
     expect(samePolicy(POLICY, back)).toBe(true);
   });
@@ -57,8 +60,13 @@ describe('policy form mapping', () => {
     const back = formToPolicy(form);
     expect(back.rules).toEqual({ block_ai_labeled: true, block_live: true });
     expect(samePolicy(POLICY, back)).toBe(false);
-    expect(RULE_SWITCHES.map((r) => r.title)).toEqual(['🚫 No a vídeos de IA (etiqueta de YouTube)', '📡 No a directos (live)']);
-    expect(RULE_SWITCHES[0]?.note).toBe('Solo detecta lo que el creador declara; el resto lo decide el modelo.');
+    expect(RULE_SWITCHES.map((r) => t(r.title))).toEqual(['🚫 No a vídeos de IA (etiqueta de YouTube)', '📡 No a directos (live)']);
+    expect(t(RULE_SWITCHES[0]!.note)).toBe('Solo detecta lo que el creador declara; el resto lo decide el modelo.');
+  });
+
+  it('keeps blocked sites through the form', () => {
+    const form = policyToForm({ ...POLICY, blocked_sites: ['reddit.com'] });
+    expect(formToPolicy(form).blocked_sites).toEqual(['reddit.com']);
   });
 
   it('parses channel lists from commas and lines, deduplicating', () => {

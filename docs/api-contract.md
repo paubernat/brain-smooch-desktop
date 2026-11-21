@@ -116,11 +116,14 @@ Los usa la página de opciones de la extensión («Configura tu perfil»). La po
   },
   "auxiliary_questions": [{"id": "is_gaming", "type": "boolean", "instructions": "¿...?"}],
   "channel_lists": {"NO": [], "LIMITADO": ["Atrioc"], "LIBRE": ["Fireship"]},
-  "rules": {"block_ai_labeled": false, "block_live": false}
+  "rules": {"block_ai_labeled": false, "block_live": false},
+  "blocked_sites": ["reddit.com", "twitch.tv"]
 }
 ```
 
 `rules` (por defecto todo `false`; opcional al enviar) son reglas fijas como `channel_lists`: dan el veredicto antes del modelo en producción (`app.rules.apply_rules`) y **no** se aplican en la ablación ni en `/policy/evaluate`. `block_ai_labeled`: NO si `metadata.ai_disclosure.labeled`. `block_live`: NO si `live.is_live_now` o `live.is_upcoming` (las grabaciones de directos las decide el modelo). Orden: lista NO de canales → `block_live` → `block_ai_labeled` → listas LIMITADO/LIBRE (un interruptor «No a…» gana a un canal en LIBRE). Claude (draft/refine/refresh/edit) nunca cambia `rules`: se conservan de la política de partida.
+
+`blocked_sites` (por defecto `[]`; opcional al enviar): webs que la **extensión** bloquea enteras (dominio y subdominios), fuera de YouTube. No pasan por el juez ni por la ablación, y Claude nunca las cambia (como `rules`). El servicio normaliza cada entrada al dominio desnudo (`https://www.Reddit.com/r/x` → `reddit.com`: sin esquema, ruta, puerto, usuario ni `www.`; minúsculas; sin duplicados) y responde `422` si alguna no es un dominio válido (al menos dos etiquetas, TLD alfabético o punycode; las IP no valen). La extensión aplica la misma regla (`extension/src/sites.ts`) y además rechaza dominios de YouTube. En el YAML se escriben en una línea: `blocked_sites: [reddit.com, twitch.tv]`.
 
 ### `GET /policy`
 `{"version": 3, "policy_version": "3-424f6405", "content": PolicyContent, "yaml": "texto del fichero"}`
@@ -130,6 +133,7 @@ Cuerpo: exactamente uno de `{"content": PolicyContent}` o `{"yaml": "..."}` (mod
 Respuesta: como `GET /policy` más `"incorporated": N`.
 - Sube `version`, archiva la anterior en `policy/history/v<N>.yaml` y escribe de forma atómica. Antes de escribir valida con el modelo `Policy` y comprueba el round-trip; las claves `NO`/`LIBRE` (y valores como `no`) van entre comillas.
 - `200` con lo mismo que `GET /policy`. `409` si `expected_version` no coincide con la versión en disco. `422` si el YAML o el contenido no son válidos.
+- Los pasos «Canales» y «Bloquear webs extra» y el botón «📌 Canal» del panel de YouTube hacen lectura-modificación-escritura: `GET /policy`, cambian solo `channel_lists` o `blocked_sites` y `PUT` con `expected_version`; ante un `409` releen y reintentan (hasta 3 veces).
 
 ### `GET /policy/history`
 `[{"version": 3, "file": "v3.yaml", "saved_at": "2026-11-21T18:00:00+00:00"}]` (más reciente primero).
@@ -197,4 +201,11 @@ Respuesta: como `/policy/refine` más `"base_version": 3` y `"feedback": [{"vide
 Nunca incluye el valor de las claves, solo si están configuradas.
 
 ## CORS
-Solo se permite el origen de la extensión (`moz-extension://<uuid>`). Como el UUID es por instalación, el servicio acepta cualquier `moz-extension://` origin (regex) y nada más. Las peticiones salen del content script vía background/`fetch` con host permission a `http://127.0.0.1/*` (solo `/health`, `/fichas`, `/labels`, `/verdicts/{id}` y el resumen de `/policy/feedback`); la página de opciones (también `moz-extension://`) hace `fetch` directamente. Métodos permitidos: `GET`, `POST`, `PUT`.
+Solo se permite el origen de la extensión (`moz-extension://<uuid>`). Como el UUID es por instalación, el servicio acepta cualquier `moz-extension://` origin (regex) y nada más. Las peticiones salen del content script vía background/`fetch` con host permission a `http://127.0.0.1/*` (solo `/health`, `/fichas`, `/labels`, `/verdicts/{id}`, el resumen de `/policy/feedback` y `GET`/`PUT /policy` para fijar canales; el background además lee `GET /policy` cada minuto para `blocked_sites`); la página de opciones (también `moz-extension://`) hace `fetch` directamente. Métodos permitidos: `GET`, `POST`, `PUT`.
+
+## Estado local de la extensión (`browser.storage.local`)
+No pasa por el servicio; es por perfil de Firefox.
+- `uiLanguage`: `"en" | "es" | "ca"` (página de perfil, página de bloqueo y el control 📌 del panel).
+- `blockedSites`: copia de `blocked_sites` que usa el background para bloquear aunque el servicio esté apagado.
+- `setupState`: `{"policySaved": bool, "sitesReviewed": bool, "launched": bool, "light": {"manual": 0..1, "agentic": 0..1}}`. `setup_complete` = `policySaved && sitesReviewed` (desbloquea el cohete).
+- `profileWizard`: textos y borrador del asistente (ya existía).

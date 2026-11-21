@@ -1,8 +1,9 @@
 // "Why this draft" box: Claude's rationale and the list of changes.
 import { h } from '../dom';
+import { t } from '../i18n';
 import { notice } from './status';
 
-export function rationaleBox(rationale: string, changelog: string[], title = 'Por qué este borrador'): HTMLElement | null {
+export function rationaleBox(rationale: string, changelog: string[], title = t('draft.rationaleTitle')): HTMLElement | null {
   if (!rationale && !changelog.length) return null;
   return notice(
     'info',

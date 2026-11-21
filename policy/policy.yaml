@@ -1,36 +1,38 @@
 # Política de decisión (PLAN §8). Editable a mano o desde «Configura tu perfil» en la
 # extensión. Cada guardado sube `version`; las anteriores quedan en policy/history/.
-version: 7
+version: 9
 question:
   id: tier
   type: choice
   instructions: >-
     Clasifica este vídeo de YouTube según cómo quiere usar YouTube su dueño: formación y música de calidad
-    sin límite, entretenimiento largo y con sustancia con cupo, y nada de contenido adictivo, viral o
-    de relleno. Primero aplica la lista de canales; si no hay regla, compara la ficha con los criterios
-    de cada opción. Ante la duda, LIMITADO.
+    sin límite, entretenimiento largo y con sustancia con cupo, y nada de contenido adictivo, viral, de
+    relleno, ni de política y actualidad. Primero aplica la lista de canales; si no hay regla, compara
+    la ficha con los criterios de cada opción. Ante la duda, LIMITADO.
   options:
     "NO":
       description: >-
-        Videojuegos (en especial League of Legends y esports; también GTA 6 jugado por streamers) y deportes
-        de cualquier tipo (NBA, tenis de mesa, disc golf). Shorts de relleno de cualquier temática (cuentos
-        resumidos, salud sensacionalista, trucos de dibujo, clips virales, vídeos de IA). Recopilaciones
-        de memes o frases, retos, sketches y shows de youtubers de humor (Druski, NDL), listas sensacionalistas
-        de música, contenido de IA genérico. Un canal de la lista LIMITADO prevalece sobre estos criterios.
+        Videojuegos (League of Legends y esports; GTA 6 y su actualidad) y deportes de cualquier tipo
+        (NBA, tenis de mesa, disc golf). Política y actualidad: noticias, debates, elecciones y comentario
+        político o partidista, aunque sea de medios o divulgadores (laSexta, El País, Pakman, HasanAbi,
+        Rallo). Shorts de relleno, clips virales, sketches y humor de youtubers (Druski, NDL), retos,
+        memes, listas sensacionalistas, contenido de IA genérico. Música tangencial sin tocar ni enseñar
+        (reparar pianos, anécdotas). Un canal de LIMITADO prevalece.
     LIMITADO:
       description: >-
         Entretenimiento largo con cupo: commentary, humor, vlogs, podcasts y shows de creadores aceptados
-        (The Yard, dunkey, Ludwig), reseñas humorísticas de juegos de esos canales, experimentos o inventos
-        DIY (I did a thing) y explicadores de geopolítica o temas militares (WarFronts). Ante la duda
-        entre NO, LIMITADO y LIBRE, LIMITADO. Si algo parece NO por ser gaming o deporte pero es de un
-        canal listado aquí, LIMITADO.
+        (The Yard, dunkey, Ludwig, orslok), reseñas humorísticas de juegos de esos canales, experimentos
+        o inventos DIY (I did a thing) y explicadores de geopolítica o temas militares (WarFronts). Ante
+        la duda entre NO, LIMITADO y LIBRE, LIMITADO. Si parece NO por ser gaming o deporte pero es de
+        un canal listado aquí, LIMITADO. Política de actualidad partidista de canales no listados sigue
+        siendo NO.
     LIBRE:
       description: >-
         Música con sustancia: alguien tocando (piano, jazz) con los acordes o la partitura en pantalla,
         explicaciones de acordes, voicings, armonía o melodía, transcripciones, covers y tutoriales de
-        cómo tocar temas. Técnico de calidad: arquitectura de software, tutoriales de Azure, IA explicada
-        con rigor por fuentes con criterio (canales que hablan de las cosas con propiedad, p. ej. Fireship
-        o DeepSeek). Shorts incluidos si cumplen esto.
+        cómo tocar temas (Jeff Schneider). Técnico de calidad: arquitectura de software, tutoriales de
+        Azure, IA explicada con rigor por fuentes con criterio (canales que hablan de las cosas con propiedad,
+        p. ej. Fireship o DeepSeek). Shorts incluidos si cumplen esto.
 auxiliary_questions:
 - id: is_music_education
   type: boolean
@@ -41,6 +43,9 @@ auxiliary_questions:
 - id: is_sports
   type: boolean
   instructions: ¿Trata principalmente sobre deportes?
+- id: is_political_news
+  type: boolean
+  instructions: ¿Trata de política, elecciones, debates o noticias de actualidad?
 - id: is_low_effort_listicle
   type: boolean
   instructions: >-

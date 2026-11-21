@@ -1,6 +1,7 @@
 // Typed client for the options page. The page runs on the extension origin
 // (moz-extension://), which the service allows by CORS, so it fetches directly.
 import type { ApiResult } from '../api-messages';
+import type { PolicyTransport } from '../policy-patch';
 import { fetchService } from '../service-http';
 import type { FeedbackSummary, LiveSettings } from '../types';
 import type {
@@ -57,4 +58,10 @@ export const optionsApi = {
   labelStats: () => fetchService<LabelStats>('GET', '/labels/stats'),
   liveSettings: () => fetchService<LiveSettings>('GET', '/settings/live'),
   saveLiveSettings: (settings: LiveSettings) => fetchService<LiveSettings>('PUT', '/settings/live', settings),
+};
+
+/** For patchPolicy (read-modify-write with retry on 409). */
+export const policyTransport: PolicyTransport<PolicyContent, PolicyOut> = {
+  get: () => optionsApi.getPolicy(),
+  put: (content, expectedVersion) => optionsApi.savePolicy({ content }, expectedVersion),
 };

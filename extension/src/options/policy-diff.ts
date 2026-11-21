@@ -1,6 +1,7 @@
 // Pure diff between two policies: which fields changed, and a word-level diff
 // of each changed text (for the calibration and AI-edit views).
 import { LABELS } from '../types';
+import { t } from './i18n';
 import { formatChannelList, normalizeRules, RULE_SWITCHES } from './policy-form';
 import type { PolicyContent } from './types';
 
@@ -29,7 +30,7 @@ function auxText(policy: PolicyContent): string {
 export function rulesText(policy: PolicyContent): string {
   const rules = normalizeRules(policy.rules);
   return RULE_SWITCHES.filter((r) => rules[r.key])
-    .map((r) => r.title)
+    .map((r) => t(r.title))
     .join('\n');
 }
 
@@ -37,11 +38,11 @@ export function rulesText(policy: PolicyContent): string {
 function fields(policy: PolicyContent): FieldChange[] {
   const q = policy.question;
   return [
-    { key: 'instructions', title: 'Instrucciones generales', before: '', after: q.instructions.trim() },
+    { key: 'instructions', title: t('diff.instructions'), before: '', after: q.instructions.trim() },
     ...LABELS.map((l) => ({ key: `option.${l}`, title: l, before: '', after: (q.options[l]?.description ?? '').trim() })),
-    { key: 'rules', title: 'Reglas fijas', before: '', after: rulesText(policy) },
-    { key: 'aux', title: 'Preguntas auxiliares', before: '', after: auxText(policy) },
-    ...LABELS.map((l) => ({ key: `channels.${l}`, title: `Canales ${l}`, before: '', after: formatChannelList(policy.channel_lists[l]) })),
+    { key: 'rules', title: t('diff.rules'), before: '', after: rulesText(policy) },
+    { key: 'aux', title: t('diff.aux'), before: '', after: auxText(policy) },
+    ...LABELS.map((l) => ({ key: `channels.${l}`, title: t('diff.channels', { label: l }), before: '', after: formatChannelList(policy.channel_lists[l]) })),
   ];
 }
 

@@ -1,24 +1,18 @@
 // Form for a policy: instructions, the three option descriptions, fixed-rule
-// switches, auxiliary questions and (optionally) channel lists. Shared by the
-// manual mode and the wizard.
-import type { Label } from '../../types';
+// switches, auxiliary questions and (optionally) the channel board. Shared by
+// the manual mode and the wizard.
 import { button, field, h, textarea } from '../dom';
+import { t } from '../i18n';
 import { formToPolicy, policyToForm, RULE_SWITCHES, slugifyAuxId, type AuxRow, type PolicyForm } from '../policy-form';
 import type { PolicyContent } from '../types';
+import { ChannelBoard } from './channel-board';
+import { TIER_INFO, tierBlurb, tierHeader } from './tier';
 
-export const TIER_INFO: readonly { label: Label; blurb: string }[] = [
-  { label: 'LIBRE', blurb: 'Sin límite' },
-  { label: 'LIMITADO', blurb: 'Con cupo de tiempo' },
-  { label: 'NO', blurb: 'Bloqueado' },
-];
+export { TIER_INFO, tierBlurb, tierHeader } from './tier';
 
 export interface EditorOptions {
   showChannels: boolean;
   onChange?: (policy: PolicyContent) => void;
-}
-
-export function tierHeader(label: Label, blurb: string): HTMLElement {
-  return h('header', {}, h('span', { className: `tier-badge tier-${label}`, text: label }), h('span', { className: 'muted', text: blurb }));
 }
 
 export class PolicyEditor {
@@ -50,19 +44,19 @@ export class PolicyEditor {
 
   private render(): void {
     const f = this.form;
-    const instructions = textarea(f.instructions, 'Para qué usas YouTube y cómo decidir…', 3, (v) => {
+    const instructions = textarea(f.instructions, t('editor.instructionsPlaceholder'), 3, (v) => {
       f.instructions = v;
       this.changed();
     });
     const tiers = h(
       'div',
       { className: 'tier-grid' },
-      ...TIER_INFO.map(({ label, blurb }) =>
+      ...TIER_INFO.map(({ label }) =>
         h(
           'section',
           { className: `tier-card tier-${label}` },
-          tierHeader(label, blurb),
-          textarea(f.options[label], `Qué va en ${label}…`, 8, (v) => {
+          tierHeader(label, tierBlurb(label)),
+          textarea(f.options[label], t('editor.tierPlaceholder', { label }), 8, (v) => {
             f.options[label] = v;
             this.changed();
           }),
@@ -73,15 +67,15 @@ export class PolicyEditor {
     const aux = h(
       'section',
       { className: 'subsection' },
-      h('h3', { text: 'Preguntas auxiliares' }),
-      h('p', { className: 'muted', text: 'Preguntas de sí/no que el juez responde junto al veredicto. No deciden nada: sirven para entender los errores.' }),
+      h('h3', { text: t('editor.aux') }),
+      h('p', { className: 'muted', text: t('editor.auxLead') }),
       this.auxList,
-      button('+ Añadir pregunta', () => {
+      button(t('editor.auxAdd'), () => {
         f.aux.push({ id: '', instructions: '' });
         this.renderAux();
       }, 'ghost'),
     );
-    this.element.replaceChildren(field('Instrucciones generales', instructions, 'Lo primero que lee el juez: 2–4 frases.'), tiers, this.renderRules(), aux);
+    this.element.replaceChildren(field(t('editor.instructions'), instructions, t('editor.instructionsHint')), tiers, this.renderRules(), aux);
     if (this.options.showChannels) this.element.append(this.renderChannels());
   }
 
@@ -97,14 +91,14 @@ export class PolicyEditor {
         'label',
         { className: 'rule-switch' },
         input,
-        h('span', { className: 'rule-text' }, h('strong', { text: title }), h('span', { className: 'hint', text: note })),
+        h('span', { className: 'rule-text' }, h('strong', { text: t(title) }), h('span', { className: 'hint', text: t(note) })),
       );
     });
     return h(
       'section',
       { className: 'subsection rules' },
-      h('h3', { text: 'Reglas fijas' }),
-      h('p', { className: 'muted', text: 'Dan NO directamente, antes de preguntar al modelo (no participan en la ablación).' }),
+      h('h3', { text: t('editor.rules') }),
+      h('p', { className: 'muted', text: t('editor.rulesLead') }),
       ...switches,
     );
   }
@@ -114,13 +108,13 @@ export class PolicyEditor {
   }
 
   private auxRow(row: AuxRow, index: number): HTMLElement {
-    const id = h('input', { className: 'mono', attrs: { type: 'text', placeholder: 'is_gaming', 'aria-label': 'Identificador' } });
+    const id = h('input', { className: 'mono', attrs: { type: 'text', placeholder: 'is_gaming', 'aria-label': t('editor.auxId') } });
     id.value = row.id;
     id.addEventListener('input', () => {
       row.id = id.value;
       this.changed();
     });
-    const question = h('input', { attrs: { type: 'text', placeholder: '¿Trata principalmente sobre videojuegos?', 'aria-label': 'Pregunta' } });
+    const question = h('input', { attrs: { type: 'text', placeholder: t('editor.auxQuestionPlaceholder'), 'aria-label': t('editor.auxQuestion') } });
     question.value = row.instructions;
     question.addEventListener('input', () => {
       row.instructions = question.value;
@@ -138,31 +132,21 @@ export class PolicyEditor {
       this.renderAux();
       this.changed();
     }, 'ghost');
-    remove.title = 'Quitar pregunta';
+    remove.title = t('editor.auxRemove');
     return h('div', { className: 'aux-row' }, id, question, remove);
   }
 
   private renderChannels(): HTMLElement {
+    const board = new ChannelBoard(this.form.channels, (lists) => {
+      this.form.channels = lists;
+      this.changed();
+    });
     return h(
       'section',
       { className: 'subsection' },
-      h('h3', { text: 'Listas de canales' }),
-      h('p', { className: 'muted', text: 'Reglas fijas que se aplican antes del modelo (no participan en la ablación). Nombres separados por comas o saltos de línea.' }),
-      h(
-        'div',
-        { className: 'tier-grid' },
-        ...TIER_INFO.map(({ label, blurb }) =>
-          h(
-            'section',
-            { className: `tier-card compact tier-${label}` },
-            tierHeader(label, blurb),
-            textarea(this.form.channels[label], 'Canal 1, Canal 2…', 3, (v) => {
-              this.form.channels[label] = v;
-              this.changed();
-            }),
-          ),
-        ),
-      ),
+      h('h3', { text: t('editor.channels') }),
+      h('p', { className: 'muted', text: t('editor.channelsLead') }),
+      board.element,
     );
   }
 }

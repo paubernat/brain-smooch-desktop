@@ -1,12 +1,14 @@
 // Floating label panel: NO / LIMITADO / LIBRE + optional reason + level
 // status (L1..L4) + pending-feedback badge + "IA" / "LIVE" badges for the
-// current video, and the live verdict of the model ("Modelo: LIBRE · 87 %").
+// current video, the live verdict of the model ("Modelo: LIBRE · 87 %") and a
+// "📌 Canal → NO / LIMITADO / LIBRE" control that pins the video's channel.
 // Isolated from YouTube's CSS with a
 // closed Shadow DOM. Shortcuts: Alt+1 / Alt+2 / Alt+3 (see shortcuts.ts).
 //
 // The label buttons are never `disabled`: a disabled button swallows clicks
 // without any feedback. While the ficha is still being saved the panel is in
 // a "waiting" state and the content script queues the label instead.
+import { t } from '../options/i18n';
 import { LABELS, type Label, type LabelInfo, type LevelStatus, type Metadata } from '../types';
 import { PANEL_CSS } from './panel-styles';
 import { SHORTCUTS, shortcutLabel } from './shortcuts';
@@ -19,6 +21,8 @@ export interface PanelHandlers {
   onRetry: () => void;
   onOpenSettings: () => void;
   onOpenCalibration: () => void;
+  /** Pin the current channel to a list (the same tier again unpins it). */
+  onChannelTier?: (label: Label) => void;
 }
 
 /** Labels not yet incorporated into the policy (dev split only). */
@@ -85,6 +89,10 @@ export class LabelPanel {
   private readonly verdictEl = h('div', 'verdict hidden');
   private readonly calibrationEl = h('button', 'link calibrate hidden');
   private readonly buttons = new Map<Label, HTMLButtonElement>();
+  private readonly channelEl = h('div', 'channel-row hidden');
+  private readonly channelStateEl = h('span', 'channel-state');
+  private readonly pinButtons = new Map<Label, HTMLButtonElement>();
+  private channelName = '';
   private videoId: string | null = null;
   private current: LabelInfo | null = null;
   private verdict: VerdictState = { kind: 'idle' };
@@ -136,9 +144,42 @@ export class LabelPanel {
     const body = h('div', 'body');
     const titleRow = h('div', 'title-row');
     titleRow.append(this.signalsEl, this.titleEl);
-    body.append(titleRow, this.verdictEl, row, this.reasonEl, this.statusEl, this.calibrationEl, hint);
+    body.append(titleRow, this.verdictEl, row, this.reasonEl, this.buildChannelRow(), this.statusEl, this.calibrationEl, hint);
     this.panel.append(head, body);
     this.setLevels({});
+  }
+
+  private buildChannelRow(): HTMLElement {
+    const pins = h('span', 'pins');
+    for (const label of LABELS) {
+      const b = h('button', `pin ${label}`, label === 'LIMITADO' ? 'LIM' : label);
+      b.type = 'button';
+      b.addEventListener('click', () => {
+        if (this.channelName) this.handlers.onChannelTier?.(label);
+      });
+      this.pinButtons.set(label, b);
+      pins.append(b);
+    }
+    this.channelEl.append(h('span', 'channel-label', t('panel.channel')), this.channelStateEl, pins);
+    return this.channelEl;
+  }
+
+  /** Channel of the current video and the list it is pinned to (null name hides the row). */
+  setChannel(name: string | null, tier: Label | null): void {
+    this.channelName = name ?? '';
+    this.channelEl.classList.toggle('hidden', !this.channelName);
+    this.channelEl.title = t('panel.channelTitle', { name: this.channelName });
+    this.channelStateEl.textContent = tier ? t('panel.channelIn', { label: tier }) : t('panel.channelNone');
+    this.channelStateEl.className = `channel-state ${tier ? `${tier}-text` : ''}`;
+    this.pinButtons.forEach((b, l) => {
+      b.classList.toggle('selected', l === tier);
+      b.setAttribute('aria-pressed', String(l === tier));
+      b.title = `${this.channelName} → ${l}`;
+    });
+  }
+
+  setChannelBusy(busy: boolean): void {
+    this.channelEl.classList.toggle('busy', busy);
   }
 
   mount(): void {
@@ -157,6 +198,7 @@ export class LabelPanel {
       this.renderLabel();
       this.setSignals([]);
       this.setVerdict({ kind: 'idle' });
+      this.setChannel(null, null);
     }
     this.videoId = videoId;
     this.titleEl.textContent = title || videoId;
