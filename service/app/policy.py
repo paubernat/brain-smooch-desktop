@@ -38,18 +38,11 @@ class AuxQuestion(BaseModel):
         return self.instructions or f"¿{self.id.replace('_', ' ')}?"
 
 
-class PolicyExample(BaseModel):
-    video_id: str
-    label: Label
-    note: str = ""
-
-
 class Policy(BaseModel):
     version: int
     question: PolicyQuestion
     auxiliary_questions: list[AuxQuestion] = Field(default_factory=list)
     channel_lists: dict[Label, list[str]] = Field(default_factory=dict)
-    examples: list[PolicyExample] = Field(default_factory=list)
     sha256: str = ""
 
     @property

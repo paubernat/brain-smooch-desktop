@@ -1,8 +1,6 @@
 """Interfaz común de los jueces (PLAN §9.1) y utilidades compartidas por los adaptadores.
 
 Formatos de petición/respuesta: solo los de docs/judges-api-notes.md.
-Few-shot (`policy.examples`): ningún proveedor documenta un mecanismo de ejemplos, así que
-no se envían (ver "Open questions" en las notas).
 """
 
 import base64

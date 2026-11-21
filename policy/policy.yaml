@@ -1,4 +1,4 @@
-version: 2
+version: 3
 question:
   id: tier
   type: choice
@@ -40,6 +40,3 @@ channel_lists:                # reglas fijas; se aplican antes del modelo
   LIMITADO: [Atrioc, dunkey, Ludwig, The Yard, Good Work, Cheese Factory, geopold, orslok]  # TODO: confirmar nombres y pasar a channel_id
   LIBRE: [Fireship, DeepSeek]  # TODO: completar
   NO: []
-examples:                     # few-shot, se pasan si el juez lo soporta
-  - {video_id: ib6nIB-fbNE, label: LIBRE, note: "Short de acordes de piano R&B/jazz (Jeff Schneider)"}
-  - {video_id: oyxs-4jk0Tg, label: LIBRE, note: "Short de música de calidad"}
