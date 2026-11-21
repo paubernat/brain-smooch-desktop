@@ -1,9 +1,11 @@
 // Hash router: #manual, #agentica, #probar ("Probar política"), #calibracion
 // (landing scrolled to the calibration card), #webs (block extra sites),
-// #canales (channel lists), #configurar (setup screen even after launch);
-// anything else is the landing screen (the dashboard once launched).
+// #canales (channel lists), #configurar (setup screen even after launch),
+// #custodio (custodian + password, right before the rocket), #candado
+// (unlock / lock settings), #kit (printable recovery kit); anything else is
+// the landing screen (the dashboard once launched).
 
-export type Route = 'landing' | 'setup' | 'manual' | 'agentic' | 'test' | 'calibration' | 'sites' | 'channels';
+export type Route = 'landing' | 'setup' | 'manual' | 'agentic' | 'test' | 'calibration' | 'sites' | 'channels' | 'custodian' | 'lock' | 'kit';
 
 const HASHES: Record<Route, string> = {
   landing: '',
@@ -14,6 +16,9 @@ const HASHES: Record<Route, string> = {
   calibration: '#calibracion',
   sites: '#webs',
   channels: '#canales',
+  custodian: '#custodio',
+  lock: '#candado',
+  kit: '#kit',
 };
 
 const BY_HASH = new Map<string, Route>(

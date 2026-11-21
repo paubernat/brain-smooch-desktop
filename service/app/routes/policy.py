@@ -4,7 +4,7 @@ evaluación en el split dev, mejora con los errores y edición con una instrucci
 La recalibración con las etiquetas pendientes está en `routes/feedback.py`."""
 
 import yaml
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import ValidationError
 
 from app.authoring.author import (
@@ -15,9 +15,15 @@ from app.authoring.author import (
 from app.authoring.models import DraftResult, EditResult, RefineResult
 from app.judges.base import JudgeError
 from app.judges.registry import default_judge, judge_catalog
+from app.lock.classify import policy_relaxations
 from app.policy_eval import EvalOutcome, dev_error_examples, estimate_candidate, evaluate_candidate
 from app.policy_feedback import mark_incorporated
-from app.policy_store import HistoryEntry, PolicyConflictError, parse_policy_yaml
+from app.policy_store import (
+    HistoryEntry,
+    PolicyConflictError,
+    normalized,
+    parse_policy_yaml,
+)
 from app.routes.deps import AuthorDep, Ctx, JudgeFactoryDep, PricingDep
 from app.routes.policy_schemas import (
     DraftIn,
@@ -55,9 +61,26 @@ async def get_policy(ctx: Ctx) -> PolicyOut:
 
 
 @router.put("", response_model=PolicyOut)
-async def put_policy(body: PolicyUpdate, ctx: Ctx) -> PolicyOut:
+async def put_policy(body: PolicyUpdate, request: Request, ctx: Ctx) -> PolicyOut:
+    """Endurecer se guarda al momento; relajar pide sesión de administrador (y, con espera
+    configurada, crea una solicitud: `202`). Ver `app/lock/classify.py`."""
     try:
         content = body.content if body.content is not None else parse_policy_yaml(body.yaml or "")
+        current = ctx.policies.load()
+        if body.expected_version is not None and current.version != body.expected_version:
+            raise PolicyConflictError(
+                f"policy is at version {current.version}, expected {body.expected_version}"
+            )
+        ctx.lock.authorize(
+            request,
+            policy_relaxations(current.content(), normalized(content)),
+            kind="policy",
+            payload={
+                "content": content.model_dump(mode="json"),
+                "incorporate": [r.model_dump(mode="json") for r in body.incorporate],
+            },
+            base_version=current.version,
+        )
         saved = ctx.policies.save(content, expected_version=body.expected_version)
     except PolicyConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc

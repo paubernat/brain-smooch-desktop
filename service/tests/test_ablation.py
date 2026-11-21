@@ -11,7 +11,7 @@ from app import db
 from app.config import Settings
 from app.judges.base import JudgeError, RetryableJudgeError
 from app.models import ChannelInfo, FichaIn, FichaView, Label, Verdict
-from app.policy import Policy, load_policy, parse_policy
+from app.policy import Policy, load_policy, model_hash, parse_policy
 from app.pricing import ModelPrice, Pricing
 from eval import ablation
 from eval.configs import config_levels
@@ -155,7 +155,10 @@ async def test_verdict_cache_avoids_repeated_calls(seeded: db.Database, policy: 
     assert all(r.cached for r in again.records) and len(again.records) == 5
 
     text = (POLICY_FIXTURE).read_text(encoding="utf-8")
-    changed = parse_policy(text + "\n# v2\n")
+    assert parse_policy(text + "\n# comentario\n").policy_version == policy.policy_version
+    question = policy.question.model_copy(update={"instructions": "Otras instrucciones."})
+    changed = policy.model_copy(update={"question": question})
+    changed.sha256 = model_hash(changed)
     await ablation.run_jobs(seeded, jobs, changed, sleep=no_sleep)
     assert len(judge.calls) == 10  # nueva policy_version → nuevas llamadas
     with seeded.connect() as conn:

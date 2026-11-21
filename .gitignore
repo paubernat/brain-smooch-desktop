@@ -24,3 +24,6 @@ eval/reports/*
 .DS_Store
 Thumbs.db
 .vscode/
+
+# Local web UI bundle (built by extension/build.mjs)
+service/app/web/static/

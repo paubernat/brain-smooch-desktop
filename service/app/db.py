@@ -137,6 +137,36 @@ CREATE TABLE IF NOT EXISTS verdict_exposures (
     video_id TEXT PRIMARY KEY REFERENCES videos(video_id),
     first_shown_at TEXT NOT NULL
 );
+
+-- Cupo diario de LIMITADO por día local (app/quota/): tiempo usado y gracia concedida.
+CREATE TABLE IF NOT EXISTS quota_days (
+    day TEXT PRIMARY KEY,
+    used_s REAL NOT NULL DEFAULT 0,
+    grace_video TEXT,
+    grace_used_s REAL NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL
+);
+
+-- Vídeos largos cortados al agotarse el cupo: posición para retomarlos otro día.
+CREATE TABLE IF NOT EXISTS quota_resume (
+    video_id TEXT PRIMARY KEY,
+    position_s REAL NOT NULL,
+    saved_day TEXT NOT NULL
+);
+
+-- Solicitudes de relajación con espera (app/lock/requests.py).
+CREATE TABLE IF NOT EXISTS relax_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    summary_json TEXT NOT NULL DEFAULT '[]',
+    base_version INTEGER,
+    created_at TEXT NOT NULL,
+    apply_after TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'applied', 'cancelled', 'conflict')),
+    resolved_at TEXT
+);
 """
 
 # Columnas añadidas después de la primera versión del esquema (migración aditiva).

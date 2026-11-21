@@ -5,13 +5,14 @@
 import { rocketSvg } from '../art/statues';
 import { optionsApi } from '../api';
 import { corners, panel, square } from '../components/frame';
-import { playLaunch } from '../components/launch';
 import { Statue } from '../components/statue';
 import { errorNotice, show, spinner } from '../components/status';
 import { h } from '../dom';
 import { t, tn } from '../i18n';
-import { hrefFor } from '../router';
-import { isSetupComplete, loadSetup, updateSetup, type SetupState } from '../setup-state';
+import { launchSystem } from '../launch-flow';
+import { lockApi } from '../lock-client';
+import { go, hrefFor } from '../router';
+import { isSetupComplete, loadSetup, type SetupState } from '../setup-state';
 import type { PolicyOut } from '../types';
 import { CalibrationCard } from './calibration';
 import { renderDashboard } from './dashboard';
@@ -50,8 +51,14 @@ function hero(): HTMLElement {
 function setupScreen(root: HTMLElement, setup: SetupState, policy: PolicyOut | null, options: LandingOptions): HTMLElement {
   const complete = isSetupComplete(setup);
   const launch = async () => {
-    await playLaunch();
-    await updateSetup((s) => ({ ...s, launched: true }));
+    // The custodian and the password come right before the rocket.
+    const lock = await lockApi.status();
+    if (lock.ok && !lock.data.password_set) return go('custodian');
+    const res = await launchSystem();
+    if (!res.ok) {
+      root.prepend(errorNotice(res.error ?? '', res.status ?? null, t('common.cannotSave')));
+      return;
+    }
     if (options.forceSetup) location.hash = hrefFor('landing');
     else root.replaceWith(renderLanding());
     window.scrollTo({ top: 0 });

@@ -1,9 +1,10 @@
 """Juez en directo: `POST/GET /verdicts/{video_id}` y sus ajustes `GET/PUT /settings/live`."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from app.judges.base import JudgeError
 from app.live_judge import LiveSettings, LiveVerdict, load_live_settings, save_live_settings
+from app.lock.classify import live_relaxations
 from app.models import FichaOut
 from app.routes.deps import Ctx, JudgeFactoryDep
 
@@ -45,5 +46,7 @@ async def get_live_settings(ctx: Ctx) -> LiveSettings:
 
 
 @router.put("/settings/live", response_model=LiveSettings)
-async def put_live_settings(body: LiveSettings, ctx: Ctx) -> LiveSettings:
+async def put_live_settings(body: LiveSettings, request: Request, ctx: Ctx) -> LiveSettings:
+    relax = live_relaxations(load_live_settings(ctx.database), body)
+    ctx.lock.authorize(request, relax, kind="live", payload=body.model_dump())
     return save_live_settings(ctx.database, body)

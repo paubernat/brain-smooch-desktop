@@ -1,6 +1,8 @@
 // UI language of the options page and the block page: English, Spanish or
-// Catalan. Stored in browser.storage.local; the default comes from the
+// Catalan. Stored in browser.storage.local (extension) or localStorage (local
+// web, platform/storage.ts); the default comes from the
 // browser's language, falling back to Spanish.
+import { storageGet, storageSet } from '../../platform/storage';
 import { ca } from './ca';
 import { en } from './en';
 import { es } from './es';
@@ -59,7 +61,7 @@ export function tn(n: number, key: PluralKey, params: Params = {}): string {
 export function setLang(lang: Lang, persist = true): void {
   const changed = lang !== current;
   current = lang;
-  if (persist) void browser.storage.local.set({ [LANG_STORAGE_KEY]: lang }).catch(() => undefined);
+  if (persist) void storageSet({ [LANG_STORAGE_KEY]: lang });
   if (changed) for (const listener of listeners) listener(lang);
 }
 
@@ -67,15 +69,16 @@ export function onLangChange(listener: (lang: Lang) => void): void {
   listeners.add(listener);
 }
 
+/** The stored choice, if any. */
+export async function storedLang(): Promise<Lang | null> {
+  const stored = await storageGet(LANG_STORAGE_KEY);
+  return isLang(stored) ? stored : null;
+}
+
 /** Stored choice, else the browser's language. Call before the first render. */
 export async function initLang(): Promise<Lang> {
-  let stored: unknown;
-  try {
-    stored = (await browser.storage.local.get(LANG_STORAGE_KEY))[LANG_STORAGE_KEY];
-  } catch {
-    stored = undefined;
-  }
-  const lang = isLang(stored) ? stored : detectLang(navigator.language);
+  const stored = await storedLang();
+  const lang = stored ?? detectLang(navigator.language);
   setLang(lang, false);
   return lang;
 }

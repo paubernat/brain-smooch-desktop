@@ -117,9 +117,9 @@ describe('live judge settings and "Probar política"', () => {
   });
 
   it('warns when the chosen judge has no key', () => {
-    expect(judgeWarning({ judge: 'liquid/d1.2-ultra', config: 'D', reveal: 'after_label' }, judges)).toBeNull();
-    expect(judgeWarning({ judge: 'openai/decisions', config: 'D', reveal: 'always' }, judges)).toContain('OPENAI_API_KEY');
-    expect(judgeWarning({ judge: 'nope', config: 'D', reveal: 'always' }, judges)).toContain('no está disponible');
+    expect(judgeWarning({ judge: 'liquid/d1.2-ultra', config: 'D', reveal: 'after_label', min_confidence: 0.6 }, judges)).toBeNull();
+    expect(judgeWarning({ judge: 'openai/decisions', config: 'D', reveal: 'always', min_confidence: 0.6 }, judges)).toContain('OPENAI_API_KEY');
+    expect(judgeWarning({ judge: 'nope', config: 'D', reveal: 'always', min_confidence: 0.6 }, judges)).toContain('no está disponible');
   });
 
   it('routes #probar and starts a tuning session on a policy', () => {

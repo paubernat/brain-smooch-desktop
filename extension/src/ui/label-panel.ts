@@ -1,7 +1,8 @@
 // Floating label panel: NO / LIMITADO / LIBRE + optional reason + level
 // status (L1..L4) + pending-feedback badge + "IA" / "LIVE" badges for the
 // current video, the live verdict of the model ("Modelo: LIBRE · 87 %") and a
-// "📌 Canal → NO / LIMITADO / LIBRE" control that pins the video's channel.
+// "📌 Canal → NO / LIMITADO / LIBRE" control that pins the video's channel,
+// plus the daily quota meter while a LIMITADO video is counted.
 // Isolated from YouTube's CSS with a
 // closed Shadow DOM. Shortcuts: Alt+1 / Alt+2 / Alt+3 (see shortcuts.ts).
 //
@@ -87,6 +88,7 @@ export class LabelPanel {
   private readonly reasonEl = h('input');
   private readonly statusEl = h('div', 'status');
   private readonly verdictEl = h('div', 'verdict hidden');
+  private readonly quotaEl = h('div', 'quota hidden');
   private readonly calibrationEl = h('button', 'link calibrate hidden');
   private readonly buttons = new Map<Label, HTMLButtonElement>();
   private readonly channelEl = h('div', 'channel-row hidden');
@@ -144,7 +146,7 @@ export class LabelPanel {
     const body = h('div', 'body');
     const titleRow = h('div', 'title-row');
     titleRow.append(this.signalsEl, this.titleEl);
-    body.append(titleRow, this.verdictEl, row, this.reasonEl, this.buildChannelRow(), this.statusEl, this.calibrationEl, hint);
+    body.append(titleRow, this.verdictEl, this.quotaEl, row, this.reasonEl, this.buildChannelRow(), this.statusEl, this.calibrationEl, hint);
     this.panel.append(head, body);
     this.setLevels({});
   }
@@ -249,6 +251,16 @@ export class LabelPanel {
   setVerdict(state: VerdictState): void {
     this.verdict = state;
     this.renderVerdict();
+  }
+
+  /** Daily quota line ("12 min left of 30 min"); null hides it. */
+  setQuota(text: string | null, fraction = 0): void {
+    this.quotaEl.classList.toggle('hidden', !text);
+    const bar = h('span', 'quota-bar');
+    const fill = h('span', 'quota-fill');
+    fill.style.width = `${Math.round(Math.min(1, Math.max(0, fraction)) * 100)}%`;
+    bar.append(fill);
+    this.quotaEl.replaceChildren(h('span', 'quota-text', text ?? ''), bar);
   }
 
   verdictState(): VerdictState {

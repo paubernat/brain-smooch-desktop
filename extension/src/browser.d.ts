@@ -11,6 +11,7 @@ declare namespace browser.runtime {
     previousVersion?: string;
     temporary?: boolean;
   }
+  const id: string | undefined;
   function sendMessage(message: unknown): Promise<unknown>;
   function openOptionsPage(): Promise<void>;
   function getURL(path: string): string;

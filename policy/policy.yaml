@@ -1,6 +1,6 @@
 # Política de decisión (PLAN §8). Editable a mano o desde «Configura tu perfil» en la
 # extensión. Cada guardado sube `version`; las anteriores quedan en policy/history/.
-version: 9
+version: 11
 question:
   id: tier
   type: choice
@@ -55,8 +55,10 @@ auxiliary_questions:
   instructions: ¿Es un Short viral o de relleno sin relación con música o tecnología de calidad?
 channel_lists:
   "NO": []
-  LIMITADO: [Atrioc, dunkey, Ludwig, The Yard, Good Work, Cheese Factory, geopold, orslok, WarFronts]
+  LIMITADO: [Atrioc, dunkey, Ludwig, The Yard, Good Work, Cheese Factory, geopold, orslok, WarFronts,
+    Big A]
   LIBRE: [Fireship, DeepSeek]
 rules:
   block_ai_labeled: true
   block_live: true
+blocked_sites: [twitch.tv]

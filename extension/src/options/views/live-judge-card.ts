@@ -40,6 +40,8 @@ export class LiveJudgeCard {
     const configSelect = configSelectFor(judges, settings.config, describeConfig);
     const reveal = h('input', { attrs: { type: 'checkbox' } });
     reveal.checked = settings.reveal === 'always';
+    const threshold = h('input', { attrs: { type: 'number', min: '0', max: '100', step: '5' } });
+    threshold.value = String(Math.round(settings.min_confidence * 100));
     const warning = h('div');
     const showWarning = () => {
       const text = judgeWarning(settings, judges);
@@ -58,10 +60,20 @@ export class LiveJudgeCard {
     judgeSelect.addEventListener('change', () => void save({ ...settings, judge: judgeSelect.value }));
     configSelect.addEventListener('change', () => void save({ ...settings, config: configSelect.value }));
     reveal.addEventListener('change', () => void save({ ...settings, reveal: reveal.checked ? 'always' : 'after_label' }));
+    threshold.addEventListener('change', () => {
+      const value = Math.max(0, Math.min(100, Math.round(Number(threshold.value) || 0)));
+      void save({ ...settings, min_confidence: value / 100 }).then(() => (threshold.value = String(Math.round(settings.min_confidence * 100))));
+    });
     showWarning();
     show(
       this.body,
-      h('div', { className: 'controls' }, field(t('common.judge'), judgeSelect), field(t('common.levels'), configSelect, t('live.levelsHint'))),
+      h(
+        'div',
+        { className: 'controls' },
+        field(t('common.judge'), judgeSelect),
+        field(t('common.levels'), configSelect, t('live.levelsHint')),
+        field(t('live.threshold'), threshold, t('live.thresholdHint')),
+      ),
       h(
         'div',
         { className: 'reveal-row' },

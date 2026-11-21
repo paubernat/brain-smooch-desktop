@@ -4,6 +4,7 @@
 import { corners } from '../options/components/frame';
 import { h } from '../options/dom';
 import { currentLang, initLang, t } from '../options/i18n';
+import { localWebUrl } from '../service-http';
 import { normalizeDomain } from '../sites';
 
 /** Only show a domain that is valid (the query string is user-controllable). */
@@ -20,7 +21,7 @@ async function start(): Promise<void> {
   const domain = blockedDomain() ?? t('blocked.unknown');
   const back = h('button', { className: 'btn secondary', text: t('blocked.back'), attrs: { type: 'button' } });
   back.addEventListener('click', () => history.back());
-  const profile = h('a', { className: 'btn primary', text: t('blocked.profile'), attrs: { href: `${browser.runtime.getURL('options.html')}#webs` } });
+  const profile = h('a', { className: 'btn primary', text: t('blocked.profile'), attrs: { href: await localWebUrl('webs') } });
   const lead = t('blocked.lead').split('{domain}'); // the domain goes in its own element
   document.getElementById('app')?.replaceChildren(
     h(

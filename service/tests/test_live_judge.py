@@ -63,8 +63,9 @@ def test_live_settings_defaults_and_validation(client: TestClient) -> None:
         "judge": "liquid/d1.2-ultra",
         "config": "D",
         "reveal": "after_label",
+        "min_confidence": 0.6,
     }
-    body = {"judge": "liquid/d1.2", "config": "E", "reveal": "always"}
+    body = {"judge": "liquid/d1.2", "config": "E", "reveal": "always", "min_confidence": 0.8}
     assert client.put("/settings/live", json=body).json() == body
     assert client.get("/settings/live").json() == body
     assert client.put("/settings/live", json={**body, "judge": "nope"}).status_code == 422

@@ -10,10 +10,18 @@
 // is shown only while its video is still the current one. With reveal
 // "after_label" the service hides it until the video is labelled, so the panel
 // asks for it again after each label.
+//
+// Gate (enforce/gate.ts): when blocking is on, the video is paused and covered
+// with "Deciding…" until the same live verdict arrives; NO blocks, LIMITADO
+// counts against the daily quota, LIBRE plays. Any failure blocks (fail closed).
+// A Short reached by scrolling the Shorts feed is blocked outright.
 import { api, panelPolicyTransport } from './api';
 import { channelTier, withChannel } from './channel-lists';
 import { onBridgeNavigation, requestSnapshot } from './bridge-client';
 import { debugLog, dumpSpike, initDebug } from './debug';
+import { Gate } from './enforce/gate';
+import { quotaLine, usedFraction } from './enforce/quota-view';
+import { NavTracker, navStep } from './enforce/shorts-scroll';
 import { buildFicha } from './extract/ficha';
 import { initLang, t } from './options/i18n';
 import { patchPolicy } from './policy-patch';
@@ -41,12 +49,28 @@ let queued: QueuedLabel | null = null;
 /** Channel of the current video (for the 📌 control) and the list it is in. */
 let channel: { videoId: string; name: string; tier: Label | null } | null = null;
 
+let lastHref: string | null = null;
+let shortsScroll = false;
+const navigation = new NavTracker();
+
+function retryCurrent(): void {
+  const ref = parseVideoUrl(location.href);
+  if (ref) void processVideo(ref);
+}
+
+const gate = new Gate({
+  onRetry: retryCurrent,
+  onQuota: (quota) => panel.setQuota(quota ? quotaLine(quota) : null, quota ? usedFraction(quota) : 0),
+  onLabelled: (videoId) => {
+    if (videoId !== panel.currentVideo()) return;
+    void api.getFicha(videoId).then((res) => res.ok && res.data.video_id === panel.currentVideo() && applyFicha(res.data));
+    void refreshPending();
+  },
+});
+
 const panel = new LabelPanel({
   onLabel: (label, reason) => void requestLabel(label, reason),
-  onRetry: () => {
-    const ref = parseVideoUrl(location.href);
-    if (ref) void processVideo(ref);
-  },
+  onRetry: retryCurrent,
   onOpenSettings: () => void api.openOptions(),
   onOpenCalibration: () => void api.openOptions('calibracion'),
   onChannelTier: (label) => void pinChannel(label),
@@ -71,6 +95,8 @@ async function processVideo(ref: VideoRef): Promise<void> {
   panel.setLevels({});
   panel.setBusy(true);
   panel.setStatus('leyendo vídeo…');
+  panel.setQuota(null);
+  void gate.begin(ref, shortsScroll);
   void refreshPending();
 
   // Existing label, if any, shown as soon as possible.
@@ -94,6 +120,7 @@ async function processVideo(ref: VideoRef): Promise<void> {
     if (stale()) return;
     if (!res.ok) {
       panel.setStatus(`servicio: ${res.error}`, 'error', true);
+      gate.fail(ref.videoId, res.status === null ? 'unreachable' : 'error', res.error);
       return;
     }
     applyFicha(res.data);
@@ -101,14 +128,18 @@ async function processVideo(ref: VideoRef): Promise<void> {
     panel.setReady(true);
     panel.setStatus('ficha guardada', 'ok');
     void pollLevels(ref.videoId, gen);
-    void loadVerdict(ref.videoId, gen);
+    if (gate.skipsVerdict(ref.videoId)) panel.setVerdict({ kind: 'idle' });
+    else void loadVerdict(ref.videoId, gen);
     if (queued?.videoId === ref.videoId) {
       const { label, reason } = queued;
       queued = null;
       void sendLabel(ref.videoId, label, reason);
     }
   } catch (e) {
-    if (!stale()) panel.setStatus(`extracción: ${String(e)}`, 'error', true);
+    if (!stale()) {
+      panel.setStatus(`extracción: ${String(e)}`, 'error', true);
+      gate.fail(ref.videoId, 'error', String(e));
+    }
     debugLog('extraction failed', e);
   } finally {
     if (!stale()) panel.setBusy(false);
@@ -165,6 +196,7 @@ async function loadVerdict(videoId: string, gen: number): Promise<void> {
   const current = () => gen === generation && panel.currentVideo() === videoId;
   panel.setVerdict({ kind: 'loading' });
   const res = await api.requestVerdict(videoId);
+  if (gen === generation) void gate.verdict(videoId, res);
   if (!current()) return;
   if (!res.ok) {
     panel.setVerdict({ kind: 'error', message: verdictErrorMessage(res.status, res.error) });
@@ -229,6 +261,10 @@ async function refreshPending(): Promise<void> {
 
 function checkLocation(): void {
   const ref = parseVideoUrl(location.href);
+  if (location.href !== lastHref) {
+    lastHref = location.href;
+    shortsScroll = navigation.visit(navStep(ref));
+  }
   if (!ref) {
     if (currentVideoId) {
       currentVideoId = null;
@@ -236,6 +272,7 @@ function checkLocation(): void {
       queued = null;
       generation++;
       panel.hide();
+      gate.leave();
     }
     return;
   }

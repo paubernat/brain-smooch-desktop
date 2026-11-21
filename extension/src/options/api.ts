@@ -1,9 +1,10 @@
-// Typed client for the options page. The page runs on the extension origin
-// (moz-extension://), which the service allows by CORS, so it fetches directly.
+// Typed client of the local web (onboarding + dashboard). It is served by the
+// service itself (same origin); as an extension page it would fetch the
+// service directly (CORS allows moz-extension://). See service-http.ts.
 import type { ApiResult } from '../api-messages';
 import type { PolicyTransport } from '../policy-patch';
 import { fetchService } from '../service-http';
-import type { FeedbackSummary, LiveSettings } from '../types';
+import type { EnforcementSettings, FeedbackSummary, LiveSettings, QuotaToday } from '../types';
 import type {
   DraftResult,
   EditResult,
@@ -58,7 +59,18 @@ export const optionsApi = {
   labelStats: () => fetchService<LabelStats>('GET', '/labels/stats'),
   liveSettings: () => fetchService<LiveSettings>('GET', '/settings/live'),
   saveLiveSettings: (settings: LiveSettings) => fetchService<LiveSettings>('PUT', '/settings/live', settings),
+  enforcement: () => fetchService<EnforcementSettings>('GET', '/settings/enforcement'),
+  saveEnforcement: (settings: EnforcementSettings) => fetchService<EnforcementSettings>('PUT', '/settings/enforcement', settings),
+  quotaSettings: () => fetchService<QuotaSettings>('GET', '/settings/quota'),
+  saveQuotaSettings: (settings: QuotaSettings) => fetchService<QuotaSettings>('PUT', '/settings/quota', settings),
+  quotaToday: () => fetchService<QuotaToday>('GET', '/quota/today'),
+  saveUiLanguage: (language: string) => fetchService<{ language: string | null }>('PUT', '/settings/ui', { language }),
+  uiSettings: () => fetchService<{ language: string | null }>('GET', '/settings/ui'),
 };
+
+export interface QuotaSettings {
+  daily_minutes: number;
+}
 
 /** For patchPolicy (read-modify-write with retry on 409). */
 export const policyTransport: PolicyTransport<PolicyContent, PolicyOut> = {

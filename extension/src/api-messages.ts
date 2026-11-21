@@ -14,10 +14,12 @@ export interface ApiRequestMessage {
   method: HttpMethod;
   path: string;
   body?: unknown;
+  /** Optional per-call timeout (the gate uses the fail-closed one). */
+  timeoutMs?: number;
 }
 
-/** Sections of the options page the panel can link to (hash of options.html). */
-export const OPTIONS_SECTIONS = ['calibracion'] as const;
+/** Sections of the local web the panel and the gate can link to (URL hash). */
+export const OPTIONS_SECTIONS = ['calibracion', 'webs', 'candado'] as const;
 export type OptionsSection = (typeof OPTIONS_SECTIONS)[number];
 
 /** Content scripts cannot call runtime.openOptionsPage(); they ask the background. */
@@ -33,13 +35,20 @@ export type ApiResult<T> =
 export const DEFAULT_SERVICE_PORT = 8765;
 export const FEEDBACK_SUMMARY_PATH = '/policy/feedback?items=false';
 export const POLICY_PATH = '/policy';
+export const ENFORCEMENT_PATH = '/settings/enforcement';
+export const UI_SETTINGS_PATH = '/settings/ui';
+export const QUOTA_HEARTBEAT_PATH = '/quota/heartbeat';
 export const ALLOWED_PATHS =
-  /^\/(health|fichas(\/[A-Za-z0-9_-]{11})?|verdicts\/[A-Za-z0-9_-]{11}|labels(\/stats)?|policy|policy\/feedback\?items=false)$/;
+  /^\/(health|fichas(\/[A-Za-z0-9_-]{11})?|verdicts\/[A-Za-z0-9_-]{11}|labels(\/stats)?|policy|policy\/feedback\?items=false|settings\/(enforcement|ui)|quota\/heartbeat|quota\/today(\?[A-Za-z0-9_=&.-]*)?)$/;
 
 /** The live verdict may wait for enrichment (≤ 8 s) and then for the judge (with retries). */
 export const VERDICT_TIMEOUT_MS = 120_000;
 
-export function timeoutFor(path: string): number | undefined {
+/** Content scripts may ask for a shorter timeout (fail-closed gate); capped. */
+export const MAX_TIMEOUT_MS = VERDICT_TIMEOUT_MS;
+
+export function timeoutFor(path: string, requested?: number): number | undefined {
+  if (typeof requested === 'number' && requested > 0) return Math.min(requested, MAX_TIMEOUT_MS);
   return path.startsWith('/verdicts/') ? VERDICT_TIMEOUT_MS : undefined;
 }
 

@@ -1,10 +1,14 @@
 """Política de decisión (`policy/policy.yaml`, PLAN §8).
 
-`policy_version` = "<version>-<sha256[:8]>" del fichero (con saltos de línea normalizados a
-`\\n` para que el hash no dependa de cómo git haya hecho el checkout en Windows).
+`policy_version` = "<model_version>-<sha256[:8]>", la clave de la caché de veredictos. El hash
+cubre solo lo que lee el modelo (instrucciones de la pregunta, descripciones de las opciones y
+preguntas auxiliares), no `channel_lists`, `rules` ni `blocked_sites`: editar esas listas no
+invalida la caché. `model_version` es la versión en la que cambió por última vez esa parte
+(la escribe `PolicyStore.save`; un fichero antiguo sin ella usa `version`).
 """
 
 import hashlib
+import json
 import re
 from pathlib import Path
 from typing import Literal
@@ -98,7 +102,10 @@ class PolicyContent(BaseModel):
 
 class Policy(PolicyContent):
     version: int
-    sha256: str = ""
+    # Versión en la que cambió por última vez la parte que lee el modelo (None: ficheros
+    # anteriores a este campo → `version`).
+    model_version: int | None = None
+    sha256: str = ""  # hash de la parte que lee el modelo (`model_hash`)
 
     def content(self) -> PolicyContent:
         return PolicyContent.model_validate(
@@ -107,7 +114,7 @@ class Policy(PolicyContent):
 
     @property
     def policy_version(self) -> str:
-        return f"{self.version}-{self.sha256[:8]}"
+        return f"{self.model_version or self.version}-{self.sha256[:8]}"
 
     def prompt_chars(self) -> int:
         """Caracteres de texto de la política que viajan en cada llamada (para estimar tokens)."""
@@ -117,8 +124,34 @@ class Policy(PolicyContent):
 
 
 def policy_hash(text: str) -> str:
+    """Hash del fichero entero (esquema antiguo de `policy_version`; solo para migrar)."""
     normalized = text.replace("\r\n", "\n").encode("utf-8")
     return hashlib.sha256(normalized).hexdigest()
+
+
+def model_hash(content: PolicyContent) -> str:
+    """Hash de lo que lee el modelo: pregunta (instrucciones y descripciones) y auxiliares.
+
+    JSON canónico de los textos sin espacios extremos: ni el formato del YAML, ni los
+    comentarios, ni las listas de canales / webs / reglas lo cambian."""
+    q = content.question
+    payload = {
+        "question": {
+            "id": q.id,
+            "type": q.type,
+            "instructions": q.instructions.strip(),
+            "options": {
+                str(label): option.description.strip()
+                for label, option in sorted(q.options.items(), key=lambda kv: str(kv[0]))
+            },
+        },
+        "auxiliary_questions": [
+            {"id": a.id.strip(), "type": a.type, "instructions": (a.instructions or "").strip()}
+            for a in content.auxiliary_questions
+        ],
+    }
+    text = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 class _PolicyLoader(yaml.SafeLoader):
@@ -136,8 +169,16 @@ _PolicyLoader.add_implicit_resolver(
 
 def parse_policy(text: str) -> Policy:
     data = yaml.load(text, Loader=_PolicyLoader) or {}  # SafeLoader sin bools YAML 1.1
-    data["sha256"] = policy_hash(text)
-    return Policy.model_validate(data)
+    data.pop("sha256", None)
+    policy = Policy.model_validate(data)
+    policy.sha256 = model_hash(policy)
+    return policy
+
+
+def legacy_policy_version(text: str) -> str:
+    """`policy_version` del esquema anterior: versión + hash del fichero entero."""
+    data = yaml.load(text, Loader=_PolicyLoader) or {}
+    return f"{data.get('version')}-{policy_hash(text)[:8]}"
 
 
 def load_policy(path: Path) -> Policy:

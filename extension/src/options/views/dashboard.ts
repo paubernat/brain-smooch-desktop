@@ -1,6 +1,7 @@
 // "System active": shown on the landing once the rocket was launched. Live
 // judge, blocked sites, pinned channels, pending labels and shortcuts to
 // reopen every part of the setup.
+import { formatMinutes } from '../../enforce/quota-view';
 import { optionsApi } from '../api';
 import { corners } from '../components/frame';
 import { Statue } from '../components/statue';
@@ -9,6 +10,8 @@ import { t } from '../i18n';
 import { hrefFor, type Route } from '../router';
 import type { SetupState } from '../setup-state';
 import type { PolicyOut } from '../types';
+import { LockCard } from './lock-card';
+import { ProtectionCard, quotaMeter } from './protection-card';
 
 function stat(label: string, value: string, tone: 'green' | 'orange'): { el: HTMLElement; value: HTMLElement } {
   const valueEl = h('span', { className: 'stat-value', text: value });
@@ -35,13 +38,21 @@ export function renderDashboard(setup: SetupState, policy: PolicyOut | null): HT
   const channels = (lists.NO?.length ?? 0) + (lists.LIMITADO?.length ?? 0) + (lists.LIBRE?.length ?? 0);
   const judge = stat(t('dashboard.judge'), unknown, 'green');
   const pending = stat(t('dashboard.pending'), unknown, 'orange');
+  const quota = stat(t('dashboard.quota'), unknown, 'orange');
+  const meter = h('div', { className: 'dashboard-quota' });
   const stats = [
     judge,
     stat(t('dashboard.sites'), policy ? String(policy.content.blocked_sites?.length ?? 0) : unknown, 'orange'),
     stat(t('dashboard.channels'), policy ? String(channels) : unknown, 'green'),
     pending,
+    quota,
     stat(t('dashboard.policy'), policy ? `v${policy.version}` : unknown, 'green'),
   ];
+  void optionsApi.quotaToday().then((res) => {
+    if (!res.ok) return;
+    quota.value.replaceChildren(formatMinutes(res.data.remaining_s), h('small', { className: 'mono', text: ` / ${formatMinutes(res.data.daily_s)}` }));
+    meter.replaceChildren(quotaMeter(res.data));
+  });
   void optionsApi.liveSettings().then((res) => {
     if (res.ok) judge.value.replaceChildren(res.data.judge, h('small', { className: 'mono', text: ` ${t('dashboard.judgeConfig', { config: res.data.config })}` }));
   });
@@ -64,6 +75,8 @@ export function renderDashboard(setup: SetupState, policy: PolicyOut | null): HT
       h('div', { className: 'dashboard-statues' }, new Statue('craftsman', setup.light.manual, 'small').element, new Statue('robot', setup.light.agentic, 'small').element),
       h('div', { className: 'stat-grid' }, ...stats.map((s) => s.el)),
     ),
+    meter,
+    h('div', { className: 'tools dashboard-cards' }, new ProtectionCard().element, new LockCard().element),
     h(
       'nav',
       { className: 'reopen', attrs: { 'aria-label': t('dashboard.reopen') } },

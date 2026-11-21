@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Brain Smooch Desktop (fichas)",
   "version": "0.1.0",
-  "description": "Extracts YouTube video fichas (L1/L3/L4), lets you label them NO / LIMITADO / LIBRE and blocks the extra websites of your profile. Talks only to a local service on 127.0.0.1.",
+  "description": "Labels and filters YouTube videos (NO / LIMITADO / LIBRE) with a local judge, counts a daily quota and blocks the extra websites of your profile. Talks only to a local service on 127.0.0.1.",
   "browser_specific_settings": {
     "gecko": {
       "id": "brain-smooch-desktop@local",
@@ -56,6 +56,15 @@
       ],
       "run_at": "document_start",
       "world": "MAIN"
+    },
+    {
+      "matches": [
+        "*://www.youtube.com/*"
+      ],
+      "js": [
+        "early-hold.js"
+      ],
+      "run_at": "document_start"
     },
     {
       "matches": [

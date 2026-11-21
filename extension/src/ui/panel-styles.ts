@@ -76,6 +76,10 @@ input {
 .status.error { color: #fca5a5; }
 .status.ok { color: #86efac; }
 .hint { color: #6b7280; font-size: 10px; }
+.quota { margin: 0 0 6px; font-size: 11px; color: #fcd34d; }
+.quota-text { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.quota-bar { display: block; height: 4px; margin-top: 3px; background: #374151; border-radius: 2px; overflow: hidden; }
+.quota-fill { display: block; height: 100%; background: #f59e0b; }
 .channel-row { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; min-width: 0; font-size: 11px; }
 .channel-row.busy { opacity: 0.6; pointer-events: none; }
 .channel-label { flex: none; color: #9ca3af; }

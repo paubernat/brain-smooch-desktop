@@ -132,6 +132,48 @@ export interface LiveSettings {
   judge: string;
   config: string;
   reveal: Reveal;
+  /** Gate threshold: a model verdict below it is treated as LIMITADO. */
+  min_confidence: number;
+}
+
+/** What the gate does with a video (always present in /verdicts responses). */
+export interface GateDecision {
+  action: 'allow' | 'limit' | 'block';
+  /** Effective label (LIMITADO when the model was not confident enough). */
+  label: Label;
+  low_confidence: boolean;
+  source: 'rule' | 'model';
+  rule: 'channel_list' | 'block_live' | 'block_ai_labeled' | null;
+  /** Confidence of the verdict (1 for rules). */
+  confidence: number;
+}
+
+/** GET/PUT /settings/enforcement. */
+export interface EnforcementSettings {
+  mode: 'off' | 'soft';
+  service_timeout_s: number;
+  decision_timeout_s: number;
+  block_shorts_feed: boolean;
+}
+
+export type QuotaState = 'ok' | 'grace' | 'exhausted' | 'resume_tomorrow';
+
+export interface VideoQuota {
+  allowed: boolean;
+  state: QuotaState;
+  grace_remaining_s: number;
+  resume_at_s: number | null;
+}
+
+/** GET /quota/today and POST /quota/heartbeat. */
+export interface QuotaToday {
+  day: string;
+  daily_s: number;
+  used_s: number;
+  remaining_s: number;
+  exhausted: boolean;
+  grace_video: string | null;
+  video: VideoQuota | null;
 }
 
 /** POST/GET /verdicts/{video_id}. Hidden (`revealed: false`) carries no label nor probs. */
@@ -152,6 +194,7 @@ export interface LiveVerdict {
   cost_usd: number;
   latency_ms: number;
   policy_version: string;
+  gate?: GateDecision | null;
 }
 
 /** A label not yet incorporated into the policy (GET /policy/feedback). */

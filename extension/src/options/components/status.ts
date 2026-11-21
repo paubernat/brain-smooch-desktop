@@ -1,6 +1,7 @@
 // Loading, notices and error messages shared by every view.
 import { h } from '../dom';
-import { t } from '../i18n';
+import { currentLocale, t } from '../i18n';
+import { hrefFor } from '../router';
 
 export const START_COMMAND = 'cd service && uv run python -m app';
 
@@ -22,7 +23,26 @@ export function errorNotice(error: string, status: number | null, context = t('s
       h('code', { className: 'command', text: START_COMMAND }),
     );
   }
+  if (status === 401 || status === 403) {
+    // A change that relaxes the protection: it needs the custodian's password.
+    return notice(
+      'warn',
+      h('strong', { text: t('lock.needed.title') }),
+      h('p', { text: t('lock.needed.text') }),
+      h('a', { className: 'btn primary', text: t('lock.needed.cta'), attrs: { href: hrefFor('lock') } }),
+    );
+  }
+  if (status === 202) {
+    // Relax request stored: it applies after the configured delay (`error` = apply_after).
+    return notice('info', h('strong', { text: t('lock.deferred.title') }), h('p', { text: t('lock.deferred.text', { when: formatWhen(error) }) }));
+  }
   return notice('error', h('strong', { text: `${context}.` }), h('p', { className: 'detail', text: describeError(error, status) }));
+}
+
+/** ISO date -> local date and time in the UI language. */
+export function formatWhen(iso: string): string {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? iso : date.toLocaleString(currentLocale(), { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 function describeError(error: string, status: number): string {
@@ -32,6 +52,7 @@ function describeError(error: string, status: number): string {
   }
   if (status === 409) return t('status.conflict');
   if (status === 502) return t('status.badModel', { error });
+  if (status === 429) return t('lock.tooMany');
   return `${error} (HTTP ${status})`;
 }
 

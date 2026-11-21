@@ -10,7 +10,10 @@ from app.config import Settings
 from app.enrich.channel import ChannelEnricher
 from app.enrich.pipeline import EnrichmentPipeline
 from app.live_judge import LiveJudge
+from app.lock.guard import LockGuard
+from app.lock.rate_limit import LoginLimiter
 from app.policy_store import PolicyStore
+from app.quota.tracker import QuotaTracker
 
 
 @dataclass
@@ -22,6 +25,9 @@ class AppState:
     client: httpx.AsyncClient
     policies: PolicyStore
     live: LiveJudge
+    quota: QuotaTracker
+    lock: LockGuard
+    login_limiter: LoginLimiter
 
 
 def get_ctx(request: Request) -> AppState:

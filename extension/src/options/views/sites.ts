@@ -1,6 +1,7 @@
 // "Bloquear webs extra" (#webs), the step before launch: whole websites the
 // extension blocks (and their subdomains), stored in the policy as
 // `blocked_sites`. Saving also refreshes the background's cached list.
+import { isExtensionContext, storageSet } from '../../platform/storage';
 import { BLOCKED_SITES_KEY, normalizeDomain } from '../../sites';
 import { optionsApi, policyTransport } from '../api';
 import { ChipList } from '../components/chip-list';
@@ -101,7 +102,7 @@ class SitesEditor {
     this.policy = res.data;
     this.saved = [...(res.data.content.blocked_sites ?? [])];
     this.sites = [...this.saved];
-    await browser.storage.local.set({ [BLOCKED_SITES_KEY]: this.saved }).catch(() => undefined);
+    await storageSet({ [BLOCKED_SITES_KEY]: this.saved }); // the extension's cache (no-op on the web)
     const valid = validateForm(policyToForm(res.data.content)).length === 0;
     await updateSetup((s) => ({ ...s, sitesReviewed: true, policySaved: s.policySaved || res.changed === true || valid }));
     this.render();
@@ -117,6 +118,7 @@ class SitesEditor {
   }
 
   private async checkPermission(): Promise<void> {
+    if (!isExtensionContext()) return; // the web cannot see the extension's permissions
     let granted = true;
     try {
       granted = await browser.permissions.contains(ALL_SITES);

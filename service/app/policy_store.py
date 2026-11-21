@@ -7,6 +7,8 @@
   siempre salen entre comillas para que YAML 1.1 no lea `NO` como `false`.
 - Un candidato sin guardar se renderiza con la versión que tendría al guardarse: su
   `policy_version` coincide con el del fichero guardado y la caché de veredictos se reutiliza.
+- `model_version` solo avanza cuando cambia lo que lee el modelo (`model_hash`): guardar
+  cambios de listas de canales, webs o reglas conserva `policy_version` y la caché.
 """
 
 import os
@@ -20,7 +22,7 @@ import yaml
 from pydantic import BaseModel
 
 from app.models import Label
-from app.policy import Policy, PolicyContent, load_policy, parse_policy
+from app.policy import Policy, PolicyContent, load_policy, model_hash, parse_policy
 
 HEADER = (
     "# Política de decisión (PLAN §8). Editable a mano o desde «Configura tu perfil» en la\n"
@@ -71,10 +73,15 @@ _PolicyDumper.add_representer(str, _represent_str)
 _PolicyDumper.add_representer(_FlowList, _represent_flow_list)
 
 
-def _document(content: PolicyContent, version: int) -> dict[str, Any]:
+def _document(
+    content: PolicyContent, version: int, model_version: int | None = None
+) -> dict[str, Any]:
     q = content.question
+    head: dict[str, Any] = {"version": version}
+    if model_version is not None:
+        head["model_version"] = model_version
     return {
-        "version": version,
+        **head,
         "question": {
             "id": q.id,
             "type": q.type,
@@ -106,10 +113,10 @@ def _aux_document(aux_id: str, aux_type: str, instructions: str | None) -> dict[
     return doc
 
 
-def render_policy(content: PolicyContent, version: int) -> str:
+def render_policy(content: PolicyContent, version: int, model_version: int | None = None) -> str:
     """YAML que se escribiría para `content` con `version`."""
     body = yaml.dump(
-        _document(content, version),
+        _document(content, version, model_version),
         Dumper=_PolicyDumper,
         sort_keys=False,
         allow_unicode=True,
@@ -159,7 +166,11 @@ class PolicyStore:
 
     def candidate(self, content: PolicyContent) -> Policy:
         """Política sin guardar, con el `policy_version` que tendrá al guardarse."""
-        return parse_policy(render_policy(content, self.next_version()))
+        current = self.load() if self.path.exists() else None
+        version = self.next_version()
+        return parse_policy(
+            render_policy(content, version, _model_version(current, content, version))
+        )
 
     def save(self, content: PolicyContent, expected_version: int | None = None) -> Policy:
         current = self.load() if self.path.exists() else None
@@ -168,7 +179,7 @@ class PolicyStore:
                 f"policy is at version {current.version}, expected {expected_version}"
             )
         version = self.next_version()
-        text = render_policy(content, version)
+        text = render_policy(content, version, _model_version(current, content, version))
         saved = check_round_trip(text, content)
         if current is not None:
             self._archive(current.version)
@@ -197,6 +208,13 @@ class PolicyStore:
             return
         self.history_dir.mkdir(parents=True, exist_ok=True)
         _atomic_write(target, self.raw_text())
+
+
+def _model_version(current: Policy | None, content: PolicyContent, version: int) -> int:
+    """La de la política actual si lo que lee el modelo no cambia; si no, la nueva versión."""
+    if current is not None and current.sha256 == model_hash(normalized(content)):
+        return current.model_version or current.version
+    return version
 
 
 def _atomic_write(path: Path, text: str) -> None:

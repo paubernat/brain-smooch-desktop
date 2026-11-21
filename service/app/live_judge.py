@@ -9,7 +9,13 @@
    veredicto con la config `<config>~partial`, que la ablación nunca lee.
 
 Fuga de información: cada vez que el servicio devuelve un veredicto visible lo anota en
-`verdict_exposures`; una etiqueta puesta después queda con `verdict_seen_before_label`.
+`verdict_exposures`; una etiqueta puesta después queda con `verdict_seen_before_label`. Con
+el bloqueo activo (`enforcement.mode = "soft"`) el gate actúa según el veredicto (bloquea,
+cuenta cupo o deja ver), así que también cuenta como visto.
+
+Gate (PLAN-FASE2 §5): cada respuesta lleva `gate` con la acción para la extensión, calculada
+siempre (aunque el veredicto esté oculto para el panel). Con confianza del modelo por debajo
+de `min_confidence` el gate trata el vídeo como LIMITADO.
 """
 
 import asyncio
@@ -18,14 +24,17 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import Literal
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from app import db
+from app.enforcement import SETTINGS_KEY as ENFORCEMENT_KEY
+from app.enforcement import EnforcementSettings, GateDecision, gate_decision
 from app.judges.base import Judge
 from app.judges.registry import JUDGES
 from app.models import FichaOut, InfoLevel, Label, Verdict, build_ficha_view
 from app.policy import Policy
 from app.rules import RuleId, apply_rules
+from app.settings_store import load_model
 from eval import ablation
 from eval.configs import CONFIG_LEVELS, config_levels
 
@@ -41,6 +50,8 @@ class LiveSettings(BaseModel):
     judge: str = "liquid/d1.2-ultra"
     config: str = "D"  # A–F (sin +L0: el historial sin validación temporal ensuciaría la caché)
     reveal: Reveal = "after_label"
+    # Umbral del gate: un veredicto del modelo con menos confianza se trata como LIMITADO.
+    min_confidence: float = Field(default=0.6, ge=0.0, le=1.0)
 
     @field_validator("judge")
     @classmethod
@@ -77,6 +88,7 @@ class LiveVerdict(BaseModel):
     cost_usd: float = 0.0  # coste de esta petición (0 si viene de caché o de una regla)
     latency_ms: int = 0
     policy_version: str
+    gate: GateDecision | None = None  # acción del bloqueo (siempre presente en respuestas)
 
 
 def load_live_settings(database: db.Database) -> LiveSettings:
@@ -268,10 +280,11 @@ class LiveJudge:
         latency_ms: int = 0,
     ) -> LiveVerdict:
         """Aplica `reveal` y anota la exposición si el veredicto sale visible."""
+        enforcing = load_model(self._db, ENFORCEMENT_KEY, EnforcementSettings).mode == "soft"
         with self._db.connect() as conn:
             labeled = db.get_label(conn, ficha.video_id) is not None
             revealed = settings.reveal == "always" or labeled
-            if revealed:
+            if revealed or enforcing:
                 db.record_verdict_exposure(conn, ficha.video_id)
         base = LiveVerdict(
             video_id=ficha.video_id,
@@ -284,6 +297,13 @@ class LiveJudge:
             cost_usd=cost_usd,
             latency_ms=latency_ms,
             policy_version=policy.policy_version,
+            gate=gate_decision(
+                label,
+                confidence,
+                from_rule=source == "rule",
+                min_confidence=settings.min_confidence,
+                rule=rule,
+            ),
         )
         if not revealed:
             return base

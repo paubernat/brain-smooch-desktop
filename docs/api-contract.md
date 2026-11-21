@@ -87,16 +87,67 @@ Respuesta `200` `{"video_id": "...", "label": "...", "reason": "...", "split": "
   "label": "LIBRE", "confidence": 0.87, "probs": {"NO": 0.05, "LIMITADO": 0.08, "LIBRE": 0.87},
   "source": "model", "rule": null, "reason": null,
   "judge": "liquid/d1.2-ultra", "config": "D", "partial": false, "cached": false,
-  "cost_usd": 0.0001, "latency_ms": 900, "policy_version": "5-1a2b3c4d"
+  "cost_usd": 0.0001, "latency_ms": 900, "policy_version": "5-1a2b3c4d",
+  "gate": {"action": "allow", "label": "LIBRE", "low_confidence": false,
+           "source": "model", "rule": null, "confidence": 0.87}
 }
 ```
 - `source` ∈ `rule | model`; con `rule`, `rule` ∈ `channel_list | block_live | block_ai_labeled` y `reason` lo explica.
+- `gate` (bloqueo en Firefox, PLAN-FASE2 H1): **siempre presente**, aunque el veredicto esté oculto (`revealed: false`). `action` ∈ `block | limit | allow` (NO / LIMITADO / LIBRE). `label` es la etiqueta efectiva: un veredicto del **modelo** con `confidence < min_confidence` (de `/settings/live`) pasa a `LIMITADO` con `low_confidence: true` (nunca LIBRE por duda). Las reglas fijas no tienen umbral. `source`, `rule` y `confidence` sirven para explicar el bloqueo (la extensión traduce el motivo).
+- Con el bloqueo activo (`/settings/enforcement` `mode: "soft"`) cada `POST`/`GET` cuenta como veredicto visto (`verdict_exposures`): el gate actúa según él, así que una etiqueta posterior queda con `verdict_seen_before_label`.
 - `revealed: false` (con `reveal: "after_label"` y el vídeo sin etiquetar): `label`, `confidence`, `probs`, `source`, `rule` y `reason` van a `null`. Tras etiquetar, `GET` lo devuelve visible.
 - `cost_usd`: coste de esta petición (0 si viene de caché o de una regla).
 - `404` sin ficha, `503` si falta la clave del juez (solo `POST`), `502` si el juez falla.
 
 ## `GET /settings/live`, `PUT /settings/live`
-`{"judge": "liquid/d1.2-ultra", "config": "D", "reveal": "after_label"}` (valores por defecto; tabla `settings`). `judge`: clave de `GET /judges`; `config`: `A`–`F` (sin `+L0`); `reveal` ∈ `after_label | always`. `PUT` con el objeto completo; `422` si algo no es válido.
+`{"judge": "liquid/d1.2-ultra", "config": "D", "reveal": "after_label", "min_confidence": 0.6}` (valores por defecto; tabla `settings`). `judge`: clave de `GET /judges`; `config`: `A`–`F` (sin `+L0`); `reveal` ∈ `after_label | always`; `min_confidence` ∈ [0, 1], umbral del gate. `PUT` con el objeto completo; `422` si algo no es válido. Bajar `min_confidence` o cambiar `judge`/`config` es **relajar** (ver «Candado»).
+
+## Bloqueo en Firefox (PLAN-FASE2 H1/H2)
+
+### `GET /settings/enforcement`, `PUT /settings/enforcement`
+`{"mode": "off", "service_timeout_s": 6.0, "decision_timeout_s": 45.0, "block_shorts_feed": true}` (por defecto).
+- `mode`: `off` (solo etiquetado) o `soft` (el gate pausa cada vídeo con la capa «Decidiendo…» hasta el veredicto; NO → pantalla de bloqueo; LIMITADO → cupo; LIBRE → se ve). El cohete del onboarding lo pone en `soft`.
+- `service_timeout_s` (1–30): si el servicio no responde en ese tiempo, el vídeo queda bloqueado (fail-closed). `decision_timeout_s` (5–180): tiempo máximo con «Decidiendo…» (ficha + juez); al pasarlo, bloqueo con «Reintentar».
+- `block_shorts_feed`: bloquear el feed de Shorts en scroll (navegación SPA de un Short a otro distinto, `extension/src/enforce/shorts-scroll.ts`). Un Short al que se llega desde otra página o con carga completa se evalúa como cualquier vídeo.
+- Pasar a `off` o permitir el feed de Shorts es relajar.
+
+### Cupo diario de LIMITADO: `GET /quota/today`, `POST /quota/heartbeat`
+Día local del sistema (Europe/Madrid en el PC del usuario); a medianoche empieza un cupo nuevo. Reglas (`app/quota/rules.py`):
+- Cupo `daily_minutes` (30 por defecto, `GET/PUT /settings/quota` `{"daily_minutes": 30}`; subirlo es relajar).
+- Gracia: si el latido que agota el cupo es de un vídeo al que le quedan < 10 min, ese vídeo tiene 10 min más (una vez al día).
+- Vídeos ≥ 1 h: al agotarse el cupo se guarda la posición (`quota_resume`) y se retoma otro día (`resume_at_s`).
+- Cada latido cuenta como mucho 30 s.
+
+`GET /quota/today?video_id=<id>&duration_s=<s>&position_s=<s>` (los tres opcionales) y `POST /quota/heartbeat` `{"video_id": "...", "seconds": 15, "duration_s": 3600, "position_s": 1500}` (la extensión lo manda cada ~15 s mientras un vídeo LIMITADO se reproduce en la pestaña visible) responden:
+```json
+{"day": "2026-11-21", "daily_s": 1800, "used_s": 600, "remaining_s": 1200, "exhausted": false,
+ "grace_video": null,
+ "video": {"allowed": true, "state": "ok", "grace_remaining_s": 0, "resume_at_s": null}}
+```
+`video.state` ∈ `ok | grace | exhausted | resume_tomorrow`; `video` es `null` sin `video_id`. Consultar no guarda posiciones; solo el latido.
+
+### `GET /settings/ui`, `PUT /settings/ui`
+`{"language": "es" | "en" | "ca" | null}`: idioma elegido en la web local; el background de la extensión lo copia cada minuto para el panel y las pantallas de bloqueo.
+
+## Candado (`/lock/*`, PLAN-FASE2 §6, H3)
+
+Contraseña del custodio: solo el hash **argon2id** (`argon2-cffi`) en `settings` (clave `lock`); nunca sale por la API.
+
+- `GET /lock/status` → `{"password_set": true, "custodian": "Ana", "created_at": "...", "relax_delay_hours": 0, "session": {"expires_at": 1764000000.0, "csrf": "..."} | null, "retry_after_s": 0}`.
+- `POST /lock/setup` `{"custodian", "password", "password_confirm", "relax_delay_hours": 0}`: solo si aún no hay contraseña (`409` si ya existe); `422` si no coinciden o tiene < 8 caracteres. Abre sesión.
+- `POST /lock/login` `{"password"}` → abre sesión: cookie `bs_admin` `HttpOnly; SameSite=Strict; Max-Age=600` (10 min) y `session.csrf` en el JSON. `401` contraseña incorrecta, `429` (+ `Retry-After`) tras 3 fallos seguidos: espera de 2 s que se dobla en cada fallo (tope 15 min; persiste entre reinicios).
+- `POST /lock/logout`; `POST /lock/password` `{"password", "password_confirm"}` (siempre con sesión + CSRF; cierra las demás sesiones).
+- `PUT /lock/settings` `{"relax_delay_hours": 0..168}`: espera opcional para relajar (desactivada por defecto). Acortarla es relajar.
+- `GET /lock/requests` (aplica las vencidas y devuelve las 20 últimas) y `POST /lock/requests/{id}/cancel` (sin contraseña: cancelar endurece).
+
+**Endurecer vs relajar** (`app/lock/classify.py`). Con contraseña creada, todo cambio que relaja exige sesión de administrador **y** la cabecera `X-CSRF-Token` (`401` sin sesión, `403` con CSRF incorrecto); endurecer nunca la pide. Relajar es:
+- política: sacar un canal de NO, pasar de LIMITADO a LIBRE, añadir a LIBRE o sacar de LIMITADO sin ir a NO; quitar una web bloqueada; desactivar una regla fija; **cualquier edición** de instrucciones, descripciones o preguntas auxiliares (conservador: no se sabe si permite más);
+- `/settings/live`: bajar `min_confidence`, cambiar juez o niveles; `/settings/enforcement`: `mode` → `off`, `block_shorts_feed` → `false`; `/settings/quota`: subir el cupo; `/lock/settings`: acortar la espera.
+
+Con espera configurada, un cambio que relaja (y ya pasó la contraseña) no se aplica: responde `202 {"deferred": true, "request": {"id", "kind", "summary", "apply_after", "status": "pending", ...}}` y se aplica al vencer (tarea cada minuto). Una solicitud de política solo se aplica si la política no cambió desde entonces; si no, queda `conflict`.
+
+## Web local
+El servicio sirve el onboarding y el panel en `http://127.0.0.1:8765/` (el bundle `service/app/web/static/`, generado por `extension/build.mjs`; `index.html` con `Cache-Control: no-cache`). Las rutas de la API tienen prioridad. Sin bundle, `/` responde `503` con la instrucción para construirlo.
 
 ## `GET /labels/stats`
 `{"total": 0, "by_label": {"NO": 0, "LIMITADO": 0, "LIBRE": 0}, "by_split": {"dev": 0, "test": 0}, "shorts": 0, "with_transcript": 0}`
@@ -106,7 +157,7 @@ Respuesta `200` `{"video_id": "...", "label": "...", "reason": "...", "split": "
 
 ## Política y perfil (`/policy*`, `/judges`)
 
-Los usa la página de opciones de la extensión («Configura tu perfil»). La política es `policy/policy.yaml` (PLAN §8); su parte editable (`PolicyContent`) es:
+Los usa la web local (onboarding y panel, antes la página de opciones de la extensión). La política es `policy/policy.yaml` (PLAN §8); su parte editable (`PolicyContent`) es:
 
 ```json
 {
@@ -128,11 +179,14 @@ Los usa la página de opciones de la extensión («Configura tu perfil»). La po
 ### `GET /policy`
 `{"version": 3, "policy_version": "3-424f6405", "content": PolicyContent, "yaml": "texto del fichero"}`
 
+`policy_version` = `<model_version>-<sha256[:8]>` es la clave de la caché de veredictos. El hash cubre **solo lo que lee el modelo** (pregunta: id, instrucciones y descripciones de las opciones; preguntas auxiliares), en JSON canónico sin espacios extremos: ni `channel_lists`, ni `blocked_sites`, ni `rules`, ni comentarios o formato del YAML lo cambian. `model_version` (campo del YAML, lo escribe el guardado) es la versión en la que cambió por última vez esa parte; un fichero sin él usa `version`. Así, guardar listas o webs sube `version` pero conserva `policy_version` y la caché. Al arrancar, el servicio renombra una vez las claves antiguas (`<version>-<hash del fichero entero>`) de la política actual y de `policy/history/` (`app/policy_migration.py`); los candidatos evaluados que nunca se guardaron quedan sin migrar.
+
 ### `PUT /policy`
 Cuerpo: exactamente uno de `{"content": PolicyContent}` o `{"yaml": "..."}` (modo avanzado; su `version` se ignora), más `"expected_version"` opcional y `"incorporate": [{"video_id": "...", "labeled_at": "..."}]` opcional (el `feedback` de `POST /policy/refresh`: esas etiquetas se marcan como incorporadas con la versión nueva; solo cuentan las del split dev cuyo `labeled_at` no haya cambiado).
 Respuesta: como `GET /policy` más `"incorporated": N`.
 - Sube `version`, archiva la anterior en `policy/history/v<N>.yaml` y escribe de forma atómica. Antes de escribir valida con el modelo `Policy` y comprueba el round-trip; las claves `NO`/`LIBRE` (y valores como `no`) van entre comillas.
 - `200` con lo mismo que `GET /policy`. `409` si `expected_version` no coincide con la versión en disco. `422` si el YAML o el contenido no son válidos.
+- Con contraseña creada, un cambio que relaja (ver «Candado») exige sesión de administrador (`401`/`403`) o, con espera, responde `202`.
 - Los pasos «Canales» y «Bloquear webs extra» y el botón «📌 Canal» del panel de YouTube hacen lectura-modificación-escritura: `GET /policy`, cambian solo `channel_lists` o `blocked_sites` y `PUT` con `expected_version`; ante un `409` releen y reintentan (hasta 3 veces).
 
 ### `GET /policy/history`
@@ -201,11 +255,12 @@ Respuesta: como `/policy/refine` más `"base_version": 3` y `"feedback": [{"vide
 Nunca incluye el valor de las claves, solo si están configuradas.
 
 ## CORS
-Solo se permite el origen de la extensión (`moz-extension://<uuid>`). Como el UUID es por instalación, el servicio acepta cualquier `moz-extension://` origin (regex) y nada más. Las peticiones salen del content script vía background/`fetch` con host permission a `http://127.0.0.1/*` (solo `/health`, `/fichas`, `/labels`, `/verdicts/{id}`, el resumen de `/policy/feedback` y `GET`/`PUT /policy` para fijar canales; el background además lee `GET /policy` cada minuto para `blocked_sites`); la página de opciones (también `moz-extension://`) hace `fetch` directamente. Métodos permitidos: `GET`, `POST`, `PUT`.
+Solo se permite el origen de la extensión (`moz-extension://<uuid>`). Como el UUID es por instalación, el servicio acepta cualquier `moz-extension://` origin (regex) y nada más. Las peticiones salen del content script vía background/`fetch` con host permission a `http://127.0.0.1/*` (solo `/health`, `/fichas`, `/labels`, `/verdicts/{id}`, el resumen de `/policy/feedback`, `GET`/`PUT /policy` para fijar canales, `GET /settings/enforcement`, `GET /settings/ui`, `GET /quota/today` y `POST /quota/heartbeat`; el background además lee cada minuto `GET /policy` para `blocked_sites` y los ajustes de bloqueo e idioma). La web local es del mismo origen que la API (sin CORS); la cookie de sesión es `SameSite=Strict`, así que nunca viaja en peticiones de la extensión. Métodos permitidos: `GET`, `POST`, `PUT`.
 
-## Estado local de la extensión (`browser.storage.local`)
-No pasa por el servicio; es por perfil de Firefox.
-- `uiLanguage`: `"en" | "es" | "ca"` (página de perfil, página de bloqueo y el control 📌 del panel).
+## Estado local de la extensión (`browser.storage.local`) y de la web (`localStorage`)
+La web local guarda `uiLanguage`, `setupState` y `profileWizard` en el `localStorage` de `http://127.0.0.1:8765` (`extension/src/platform/storage.ts`); la primera vez que el lanzador de la extensión abre la web le pasa su `setupState` (`?setup=`, sin `launched`). En la extensión (por perfil de Firefox):
+- `enforcement`: copia de `/settings/enforcement` (el gate decide si bloquear cuando el servicio no responde: con `mode: "soft"` bloquea; sin copia, no). También la lee `early-hold.js` (`document_start`) para pausar el vídeo antes de que cargue `content.js`.
+- `uiLanguage`: `"en" | "es" | "ca"` (panel, pantallas de bloqueo y lanzador; se copia de `/settings/ui`).
 - `blockedSites`: copia de `blocked_sites` que usa el background para bloquear aunque el servicio esté apagado.
 - `setupState`: `{"policySaved": bool, "sitesReviewed": bool, "launched": bool, "light": {"manual": 0..1, "agentic": 0..1}}`. `setup_complete` = `policySaved && sitesReviewed` (desbloquea el cohete).
 - `profileWizard`: textos y borrador del asistente (ya existía).

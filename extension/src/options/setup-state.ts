@@ -1,11 +1,12 @@
-// Setup progress of the profile page, kept in browser.storage.local under
-// `setupState` (per browser profile, not in the service):
+// Setup progress of the profile page, kept in local storage under
+// `setupState` (platform/storage.ts; not in the service):
 // - policySaved: a policy was saved from this page (manual, agentic, test,
 //   calibration or the sites step);
 // - sitesReviewed: the "Block extra sites" step was completed;
 // - launched: the rocket was launched (the landing then shows the dashboard);
 // - light: how lit each statue is (maximum reached, 0..1).
 // setup_complete = policySaved && sitesReviewed (unlocks the rocket).
+import { storageGet, storageSet } from '../platform/storage';
 import { raiseLight } from './progress';
 
 export type StatueMode = 'manual' | 'agentic';
@@ -44,11 +45,26 @@ export function parseSetup(raw: unknown): SetupState {
 }
 
 export async function loadSetup(): Promise<SetupState> {
+  return parseSetup(await storageGet(KEY));
+}
+
+/** Query parameter the extension launcher uses to hand its old progress to the local web. */
+export const SETUP_IMPORT_PARAM = 'setup';
+
+/**
+ * Progress saved by the old extension options page, carried over once to the
+ * local web (only when the web has none yet). `launched` is not carried: the
+ * custodian step and the launch (which turns blocking on) must still happen.
+ */
+export async function importSetup(raw: string | null): Promise<void> {
+  if (!raw || (await storageGet(KEY)) !== undefined) return;
+  let parsed: unknown;
   try {
-    return parseSetup((await browser.storage.local.get(KEY))[KEY]);
+    parsed = JSON.parse(raw);
   } catch {
-    return emptySetup();
+    return;
   }
+  await storageSet({ [KEY]: { ...parseSetup(parsed), launched: false } });
 }
 
 let queue: Promise<SetupState> = Promise.resolve(emptySetup());
@@ -57,7 +73,7 @@ let queue: Promise<SetupState> = Promise.resolve(emptySetup());
 export function updateSetup(change: (s: SetupState) => SetupState): Promise<SetupState> {
   queue = queue.then(async () => {
     const next = change(await loadSetup());
-    await browser.storage.local.set({ [KEY]: next }).catch(() => undefined);
+    await storageSet({ [KEY]: next });
     return next;
   });
   return queue;

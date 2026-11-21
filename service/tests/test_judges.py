@@ -70,13 +70,13 @@ def sent_body(route: respx.Route) -> dict[str, Any]:
 # --- policy / pricing --------------------------------------------------------------------------
 
 
-def test_policy_version_is_version_plus_hash_and_ignores_line_endings(policy: Policy) -> None:
+def test_policy_version_is_version_plus_hash_and_ignores_formatting(policy: Policy) -> None:
     assert policy.policy_version.startswith(f"{policy.version}-")
     assert len(policy.policy_version.split("-")[1]) == 8
     text = (POLICY_FIXTURE).read_text(encoding="utf-8")
     crlf = parse_policy(text.replace("\n", "\r\n"))
     assert crlf.policy_version == policy.policy_version
-    assert parse_policy(text + "\n# cambio\n").policy_version != policy.policy_version
+    assert parse_policy(text + "\n# cambio\n").policy_version == policy.policy_version
     assert set(policy.question.options) == set(Label)
     assert [a.id for a in policy.auxiliary_questions] == AUX_IDS
 
