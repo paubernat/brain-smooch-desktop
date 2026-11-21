@@ -1,0 +1,22 @@
+{
+  "name": "brain-smooch-desktop-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Firefox extension: extracts YouTube video fichas and labels them (NO / LIMITADO / LIBRE).",
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "dev": "node build.mjs && web-ext run --source-dir dist --start-url https://www.youtube.com/",
+    "test": "tsc --noEmit && vitest run",
+    "lint": "node build.mjs && web-ext lint --source-dir dist",
+    "sign": "node build.mjs && node scripts/sign.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "typescript": "^5.9.3",
+    "vitest": "^5.1.1",
+    "web-ext": "^10.8.0"
+  }
+}
