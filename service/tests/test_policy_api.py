@@ -1,7 +1,6 @@
 """Endpoints `/policy*` y `/judges` con FakeJudge y Anthropic simulado. Sin red ni gasto."""
 
 import json
-import shutil
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -14,7 +13,7 @@ from fastapi.testclient import TestClient
 
 from app import db
 from app.anthropic_api import ANTHROPIC_URL
-from app.config import REPO_ROOT, Settings
+from app.config import Settings
 from app.main import create_app
 from app.models import FichaIn, FichaView, Label, Verdict
 from app.policy import Policy
@@ -64,27 +63,8 @@ def seed(database: db.Database, n_dev: int, n_test: int) -> None:
 
 
 @pytest.fixture
-def policy_settings(settings: Settings) -> Settings:
-    policy_dir = settings.data_dir.parent / "policy"
-    policy_dir.mkdir(parents=True)
-    shutil.copy(REPO_ROOT / "policy" / "policy.yaml", policy_dir / "policy.yaml")
-    settings.policy_path = policy_dir / "policy.yaml"
-    settings.policy_history_dir = policy_dir / "history"
-    settings.anthropic_api_key = "sk-test"
-    settings.liquid_api_key = "liquid-test"
-    return settings
-
-
-@pytest.fixture
 def judge() -> FakeJudge:
     return FakeJudge()
-
-
-@pytest.fixture
-def mock_net() -> Iterator[respx.MockRouter]:
-    with respx.mock(assert_all_called=False) as router:
-        router.route(host="testserver").pass_through()
-        yield router
 
 
 @contextmanager

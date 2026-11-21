@@ -16,6 +16,7 @@ from app.enrich.channel import ChannelEnricher
 from app.enrich.pipeline import EnrichmentPipeline
 from app.models import FichaIn, FichaOut, LabelIn, LabelOut, Stats
 from app.policy_store import PolicyStore
+from app.routes import feedback as feedback_routes
 from app.routes import judges as judges_routes
 from app.routes import policy as policy_routes
 from app.state import AppState, get_ctx
@@ -69,6 +70,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     _register_routes(app)
     app.include_router(policy_routes.router)
+    app.include_router(feedback_routes.router)
     app.include_router(judges_routes.router)
     return app
 

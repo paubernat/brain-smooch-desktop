@@ -6,7 +6,7 @@ Todo el texto que ve Claude está aquí; `author.py` solo arma las llamadas.
 import json
 from typing import Any
 
-from app.authoring.models import ErrorExample, EvalSnapshot, Preferences
+from app.authoring.models import ErrorExample, EvalSnapshot, FeedbackExample, Preferences
 from app.models import Label
 from app.policy import PolicyContent
 
@@ -58,6 +58,43 @@ cambios, una frase cada uno.
 """
 )
 
+_CHANNEL_RULES = """\
+- `channel_lists`: nombres de canal por opción; son reglas fijas que se aplican antes del \
+clasificador. Cámbialas solo cuando el usuario lo pida de forma explícita (p. ej. «añade este \
+canal a LIMITADO»); si no, devuélvelas tal cual. Un canal no puede estar en dos listas.
+"""
+
+REFRESH_SYSTEM = (
+    _RULES
+    + _CHANNEL_RULES
+    + """
+Tarea: recibes la política vigente y los vídeos que el usuario ha etiquetado desde la última \
+revisión (su etiqueta y, a veces, un motivo escrito por él). Revisa la política para que \
+recoja esas decisiones:
+- Los motivos del usuario son criterios explícitos y tienen prioridad alta: incorpóralos, \
+generalizados, en la opción que corresponda. Si un motivo pide algo concreto (mover un tema de \
+categoría, añadir un canal a una lista), hazlo.
+- Las etiquetas sin motivo son evidencia: busca patrones (temas, formatos, tipos de canal) y \
+generaliza; no copies títulos ni ids de vídeo.
+- Si una etiqueta contradice la política, manda la etiqueta. Conserva lo que no contradigan.
+- Si hay que elegir, prefiere errores hacia LIMITADO antes que falsos LIBRE.
+- Si los ejemplos no justifican cambios, devuelve la política igual y dilo en el changelog.
+`rationale`: 2–4 frases sobre lo que has aprendido de las etiquetas. `changelog`: lista breve \
+de cambios, una frase cada uno.
+"""
+)
+
+EDIT_SYSTEM = (
+    _RULES
+    + _CHANNEL_RULES
+    + """
+Tarea: aplica a la política la instrucción del usuario, y solo esa. Cambia lo mínimo necesario \
+y deja el resto del texto idéntico (mismas frases, mismo orden). Si la instrucción pide quitar \
+algo, quítalo de todos los sitios donde aparezca (descripciones y listas de canales). \
+`changelog`: una sola frase en español que describa el cambio hecho.
+"""
+)
+
 
 def _string() -> dict[str, str]:
     return {"type": "string"}
@@ -85,35 +122,63 @@ def _draft_properties() -> dict[str, Any]:
     }
 
 
-def draft_schema() -> dict[str, Any]:
-    properties = _draft_properties()
+def _channel_lists_property() -> dict[str, Any]:
+    names = {"type": "array", "items": _string()}
+    return {
+        "type": "object",
+        "properties": dict.fromkeys(LABELS, names),
+        "required": LABELS,
+        "additionalProperties": False,
+    }
+
+
+def _object(properties: dict[str, Any]) -> dict[str, Any]:
     return {
         "type": "object",
         "properties": properties,
         "required": list(properties),
         "additionalProperties": False,
     }
+
+
+def draft_schema() -> dict[str, Any]:
+    return _object(_draft_properties())
 
 
 def refine_schema() -> dict[str, Any]:
-    properties = {**_draft_properties(), "changelog": {"type": "array", "items": _string()}}
-    return {
-        "type": "object",
-        "properties": properties,
-        "required": list(properties),
-        "additionalProperties": False,
-    }
+    return _object({**_draft_properties(), "changelog": {"type": "array", "items": _string()}})
 
 
-def _policy_json(content: PolicyContent) -> str:
+def refresh_schema() -> dict[str, Any]:
+    return _object(
+        {
+            **_draft_properties(),
+            "channel_lists": _channel_lists_property(),
+            "changelog": {"type": "array", "items": _string()},
+        }
+    )
+
+
+def edit_schema() -> dict[str, Any]:
+    properties = {k: v for k, v in _draft_properties().items() if k != "rationale"}
+    return _object(
+        {**properties, "channel_lists": _channel_lists_property(), "changelog": _string()}
+    )
+
+
+def _policy_json(content: PolicyContent, with_channels: bool = False) -> str:
     q = content.question
-    data = {
+    data: dict[str, Any] = {
         "instructions": q.instructions.strip(),
         "options": {label.value: q.options[label].description.strip() for label in q.options},
         "auxiliary_questions": [
             {"id": a.id, "instructions": a.text} for a in content.auxiliary_questions
         ],
     }
+    if with_channels:
+        data["channel_lists"] = {
+            label.value: content.channel_lists.get(label, []) for label in Label
+        }
     return json.dumps(data, ensure_ascii=False, indent=2)
 
 
@@ -170,3 +235,35 @@ def refine_user_message(
     ]
     parts.append("Vídeos mal clasificados (uno por línea, JSON):\n" + "\n".join(lines))
     return "\n\n".join(parts)
+
+
+def _feedback_line(example: FeedbackExample) -> str:
+    item: dict[str, Any] = {"usuario": example.label.value}
+    if example.reason:
+        item["motivo"] = example.reason
+    item["ficha"] = example.summary
+    return json.dumps(item, ensure_ascii=False, separators=(",", ":"))
+
+
+def refresh_user_message(current: PolicyContent, examples: list[FeedbackExample]) -> str:
+    with_reason = [e for e in examples if e.reason]
+    without_reason = [e for e in examples if not e.reason]
+    parts = [f"Política vigente:\n{_policy_json(current, with_channels=True)}"]
+    if with_reason:
+        parts.append(
+            "Etiquetas con motivo del usuario (criterios explícitos, prioridad alta; "
+            "una por línea, JSON):\n" + "\n".join(map(_feedback_line, with_reason))
+        )
+    if without_reason:
+        parts.append(
+            "Etiquetas sin motivo (evidencia; una por línea, JSON):\n"
+            + "\n".join(map(_feedback_line, without_reason))
+        )
+    return "\n\n".join(parts)
+
+
+def edit_user_message(policy: PolicyContent, instruction: str) -> str:
+    return (
+        f"Política actual:\n{_policy_json(policy, with_channels=True)}\n\n"
+        f"Instrucción del usuario:\n{instruction.strip()}"
+    )

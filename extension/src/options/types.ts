@@ -23,6 +23,8 @@ export interface PolicyOut {
   policy_version: string;
   content: PolicyContent;
   yaml: string;
+  /** Labels marked as incorporated by this save (PUT only). */
+  incorporated?: number;
 }
 
 export interface HistoryEntry {
@@ -56,6 +58,24 @@ export interface DraftResult {
 
 export interface RefineResult extends DraftResult {
   changelog: string[];
+}
+
+/** One exact label (re-labelling changes `labeled_at`). */
+export interface FeedbackRef {
+  video_id: string;
+  labeled_at: string;
+}
+
+/** Proposal from the pending labels; `feedback` is what gets marked on save. */
+export interface RefreshResult extends RefineResult {
+  base_version: number;
+  feedback: FeedbackRef[];
+}
+
+export interface EditResult {
+  content: PolicyContent;
+  changelog: string;
+  usage: AuthorUsage;
 }
 
 export interface JudgeInfo {

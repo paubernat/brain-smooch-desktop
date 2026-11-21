@@ -1,6 +1,8 @@
 // Step 2: the draft from Claude, editable, side by side with the user's text.
 import { optionsApi } from '../api';
+import { AiEditBox } from '../components/ai-edit';
 import { PolicyEditor, TIER_INFO, tierHeader } from '../components/policy-editor';
+import { rationaleBox } from '../components/rationale';
 import { errorNotice, notice, show, spinner } from '../components/status';
 import { button, h, withBusy } from '../dom';
 import { validateForm } from '../policy-form';
@@ -9,16 +11,6 @@ import type { WizardContext } from './context';
 import { withDraft } from './state';
 
 const PREF_KEY: Record<string, keyof TierTexts> = { LIBRE: 'libre', LIMITADO: 'limitado', NO: 'no' };
-
-export function rationaleBox(rationale: string, changelog: string[], title = 'Por qué este borrador'): HTMLElement | null {
-  if (!rationale && !changelog.length) return null;
-  return notice(
-    'info',
-    h('strong', { text: title }),
-    rationale ? h('p', { text: rationale }) : '',
-    changelog.length ? h('ul', { className: 'changelog' }, ...changelog.map((c) => h('li', { text: c }))) : '',
-  );
-}
 
 function userText(prefs: Preferences): HTMLElement {
   return h(
@@ -47,6 +39,13 @@ export function renderDraft(ctx: WizardContext): HTMLElement {
     showChannels: false,
     onChange: (policy) => ctx.update(withDraft(ctx.state, policy)),
   });
+  const aiEdit = new AiEditBox({
+    getPolicy: () => editor.getPolicy(),
+    setPolicy: (policy) => {
+      editor.setPolicy(policy);
+      ctx.update(withDraft(ctx.state, policy));
+    },
+  });
 
   const regenerate = button('Regenerar', () => void withBusy(regenerate, 'Regenerando…', async () => {
     show(status, spinner('Claude está redactando otra versión…'));
@@ -71,7 +70,7 @@ export function renderDraft(ctx: WizardContext): HTMLElement {
     'div',
     { className: 'step draft' },
     rationaleBox(ctx.state.rationale, ctx.state.changelog),
-    h('div', { className: 'side-by-side' }, userText(ctx.state.preferences), h('div', { className: 'draft-pane' }, h('h3', { text: 'Borrador de la política (editable)' }), editor.element)),
+    h('div', { className: 'side-by-side' }, userText(ctx.state.preferences), h('div', { className: 'draft-pane' }, h('div', { className: 'pane-head' }, h('h3', { text: 'Borrador de la política (editable)' }), aiEdit.trigger), aiEdit.element, editor.element)),
     h(
       'div',
       { className: 'actions sticky' },

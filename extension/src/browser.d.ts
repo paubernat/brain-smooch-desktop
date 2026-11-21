@@ -13,6 +13,7 @@ declare namespace browser.runtime {
   }
   function sendMessage(message: unknown): Promise<unknown>;
   function openOptionsPage(): Promise<void>;
+  function getURL(path: string): string;
   const onMessage: {
     addListener(
       callback: (message: unknown, sender: MessageSender) => Promise<unknown> | undefined | void,
@@ -35,4 +36,9 @@ declare namespace browser.storage {
   const onChanged: {
     addListener(callback: (changes: Record<string, StorageChange>, areaName: string) => void): void;
   };
+}
+
+declare namespace browser.tabs {
+  // No "tabs" permission needed to open a tab with an extension page.
+  function create(properties: { url: string; active?: boolean }): Promise<{ id?: number }>;
 }

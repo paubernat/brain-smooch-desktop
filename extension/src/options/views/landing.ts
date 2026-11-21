@@ -1,8 +1,9 @@
-// Landing: welcome + the two ways of configuring the profile.
+// Landing: welcome, the two ways of configuring the profile and the calibration card.
 import { optionsApi } from '../api';
 import { errorNotice, show } from '../components/status';
 import { h } from '../dom';
 import { hrefFor, type Route } from '../router';
+import { CalibrationCard } from './calibration';
 
 interface ModeCard {
   route: Route;
@@ -29,7 +30,12 @@ const MODES: readonly ModeCard[] = [
   },
 ];
 
-export function renderLanding(): HTMLElement {
+export interface LandingOptions {
+  /** Scroll to the calibration card (#calibracion, linked from the label panel). */
+  focusCalibration?: boolean;
+}
+
+export function renderLanding(options: LandingOptions = {}): HTMLElement {
   const status = h('div', { className: 'service-status' });
   void checkService(status);
   return h(
@@ -56,6 +62,7 @@ export function renderLanding(): HTMLElement {
         ),
       ),
     ),
+    new CalibrationCard(options.focusCalibration ?? false).element,
     status,
   );
 }

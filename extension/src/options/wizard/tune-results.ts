@@ -4,7 +4,7 @@ import { notice } from '../components/status';
 import { button, h } from '../dom';
 import { percent, plural, usd } from '../format';
 import type { EvalOutcome, Misclassified, RefineResult } from '../types';
-import { rationaleBox } from './step-draft';
+import { rationaleBox } from '../components/rationale';
 
 export function estimateLine(e: EvalOutcome): HTMLElement {
   const text =

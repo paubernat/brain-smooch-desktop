@@ -1,18 +1,32 @@
 """Endpoints del editor de perfil: leer/guardar la política, historial, borrador con Claude,
-evaluación en el split dev y mejora con los errores."""
+evaluación en el split dev, mejora con los errores y edición con una instrucción.
+
+La recalibración con las etiquetas pendientes está en `routes/feedback.py`."""
 
 import yaml
 from fastapi import APIRouter, HTTPException
 from pydantic import ValidationError
 
-from app.authoring.author import draft_from_preferences, refine_with_errors
-from app.authoring.models import DraftResult, RefineResult
+from app.authoring.author import (
+    draft_from_preferences,
+    edit_with_instruction,
+    refine_with_errors,
+)
+from app.authoring.models import DraftResult, EditResult, RefineResult
 from app.judges.base import JudgeError
 from app.judges.registry import default_judge, judge_catalog
 from app.policy_eval import EvalOutcome, dev_error_examples, estimate_candidate, evaluate_candidate
+from app.policy_feedback import mark_incorporated
 from app.policy_store import HistoryEntry, PolicyConflictError, parse_policy_yaml
 from app.routes.deps import AuthorDep, Ctx, JudgeFactoryDep, PricingDep
-from app.routes.policy_schemas import DraftIn, EvaluateIn, PolicyOut, PolicyUpdate, RefineIn
+from app.routes.policy_schemas import (
+    DraftIn,
+    EditIn,
+    EvaluateIn,
+    PolicyOut,
+    PolicyUpdate,
+    RefineIn,
+)
 from eval.configs import config_levels
 
 router = APIRouter(prefix="/policy")
@@ -44,12 +58,13 @@ async def get_policy(ctx: Ctx) -> PolicyOut:
 async def put_policy(body: PolicyUpdate, ctx: Ctx) -> PolicyOut:
     try:
         content = body.content if body.content is not None else parse_policy_yaml(body.yaml or "")
-        ctx.policies.save(content, expected_version=body.expected_version)
+        saved = ctx.policies.save(content, expected_version=body.expected_version)
     except PolicyConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except (yaml.YAMLError, ValidationError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=f"invalid policy: {exc}") from exc
-    return _policy_out(ctx)
+    incorporated = mark_incorporated(ctx.database, body.incorporate, saved.version)
+    return _policy_out(ctx).model_copy(update={"incorporated": incorporated})
 
 
 @router.get("/history", response_model=list[HistoryEntry])
@@ -93,5 +108,15 @@ async def post_refine(body: RefineIn, ctx: Ctx, author: AuthorDep) -> RefineResu
         return await refine_with_errors(
             author, body.draft, examples, snapshot=body.snapshot, prefs=body.preferences
         )
+    except JudgeError as exc:
+        raise HTTPException(status_code=502, detail=f"policy author failed: {exc}") from exc
+
+
+@router.post("/edit", response_model=EditResult)
+async def post_edit(body: EditIn, author: AuthorDep) -> EditResult:
+    if not body.instruction.strip():
+        raise HTTPException(status_code=422, detail="instruction is empty")
+    try:
+        return await edit_with_instruction(author, body.policy, body.instruction)
     except JudgeError as exc:
         raise HTTPException(status_code=502, detail=f"policy author failed: {exc}") from exc

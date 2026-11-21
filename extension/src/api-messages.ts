@@ -16,9 +16,14 @@ export interface ApiRequestMessage {
   body?: unknown;
 }
 
+/** Sections of the options page the panel can link to (hash of options.html). */
+export const OPTIONS_SECTIONS = ['calibracion'] as const;
+export type OptionsSection = (typeof OPTIONS_SECTIONS)[number];
+
 /** Content scripts cannot call runtime.openOptionsPage(); they ask the background. */
 export interface OpenOptionsMessage {
   type: 'bsd-open-options';
+  section?: OptionsSection;
 }
 
 export type ApiResult<T> =
@@ -26,7 +31,8 @@ export type ApiResult<T> =
   | { ok: false; status: number | null; error: string };
 
 export const DEFAULT_SERVICE_PORT = 8765;
-export const ALLOWED_PATHS = /^\/(health|fichas(\/[A-Za-z0-9_-]{11})?|labels(\/stats)?)$/;
+export const FEEDBACK_SUMMARY_PATH = '/policy/feedback?items=false';
+export const ALLOWED_PATHS = /^\/(health|fichas(\/[A-Za-z0-9_-]{11})?|labels(\/stats)?|policy\/feedback\?items=false)$/;
 
 export function isApiRequest(msg: unknown): msg is ApiRequestMessage {
   const m = msg as ApiRequestMessage;

@@ -5,15 +5,17 @@ import { renderManual } from './views/manual';
 import { renderWizard } from './wizard';
 
 const VIEWS: Record<Route, () => HTMLElement> = {
-  landing: renderLanding,
+  landing: () => renderLanding(),
   manual: renderManual,
   agentic: renderWizard,
+  calibration: () => renderLanding({ focusCalibration: true }),
 };
 
 const TITLES: Record<Route, string> = {
   landing: 'Configura tu perfil',
   manual: 'Configuración manual · Brain Smooch',
   agentic: 'Configuración agéntica · Brain Smooch',
+  calibration: 'Calibración · Brain Smooch',
 };
 
 const app = document.getElementById('app');

@@ -18,6 +18,7 @@ from app.models import (
     LabelOut,
     Levels,
     MetadataOut,
+    PendingLabel,
     Split,
     Stats,
     StoryboardIn,
@@ -102,6 +103,15 @@ CREATE TABLE IF NOT EXISTS frames (
     t_s REAL,
     path TEXT NOT NULL,
     PRIMARY KEY (video_id, kind, idx)
+);
+
+-- Etiquetas ya incorporadas a la política (recalibración). Una etiqueta está pendiente si no
+-- hay fila con su `labeled_at` actual: re-etiquetar un vídeo la vuelve a dejar pendiente.
+CREATE TABLE IF NOT EXISTS policy_feedback (
+    video_id TEXT PRIMARY KEY REFERENCES videos(video_id),
+    labeled_at TEXT NOT NULL,
+    policy_version INTEGER NOT NULL,
+    incorporated_at TEXT NOT NULL
 );
 """
 
@@ -392,6 +402,55 @@ def label_stats(conn: sqlite3.Connection) -> Stats:
     stats.shorts = totals["shorts"]
     stats.with_transcript = totals["with_transcript"]
     return stats
+
+
+# --- feedback para la política (etiquetas pendientes de incorporar) ---------------------------
+
+
+def pending_labels(conn: sqlite3.Connection) -> list[PendingLabel]:
+    """Etiquetas (de ambos splits) que aún no se han incorporado a la política, por antigüedad."""
+    rows = conn.execute(
+        "SELECT l.video_id, l.label, l.reason, l.split, l.labeled_at, v.title, v.channel_name, "
+        "v.is_short FROM labels l JOIN videos v USING (video_id) "
+        "LEFT JOIN policy_feedback f ON f.video_id = l.video_id AND f.labeled_at = l.labeled_at "
+        "WHERE f.video_id IS NULL ORDER BY l.labeled_at"
+    ).fetchall()
+    return [
+        PendingLabel(
+            video_id=r["video_id"],
+            title=r["title"],
+            channel=r["channel_name"],
+            label=r["label"],
+            reason=r["reason"],
+            split=r["split"],
+            is_short=bool(r["is_short"]),
+            labeled_at=r["labeled_at"],
+        )
+        for r in rows
+    ]
+
+
+def mark_labels_incorporated(
+    conn: sqlite3.Connection, refs: Iterable[tuple[str, str]], policy_version: int
+) -> int:
+    """Marca como incorporadas las etiquetas `(video_id, labeled_at)` del split dev.
+
+    Solo cuenta si la etiqueta no ha cambiado desde que se mandó a Claude (mismo `labeled_at`);
+    las del split test nunca se marcan (quedan para la ablación final).
+    """
+    now = now_iso()
+    marked = 0
+    for video_id, labeled_at in refs:
+        cursor = conn.execute(
+            "INSERT INTO policy_feedback (video_id, labeled_at, policy_version, incorporated_at) "
+            "SELECT video_id, labeled_at, ?, ? FROM labels "
+            "WHERE video_id = ? AND labeled_at = ? AND split = 'dev' "
+            "ON CONFLICT(video_id) DO UPDATE SET labeled_at=excluded.labeled_at, "
+            "policy_version=excluded.policy_version, incorporated_at=excluded.incorporated_at",
+            (policy_version, now, video_id, labeled_at),
+        )
+        marked += cursor.rowcount
+    return marked
 
 
 # --- verdicts (los usarán los jueces y la ablación) ------------------------------------------

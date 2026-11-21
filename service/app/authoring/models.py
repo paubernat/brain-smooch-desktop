@@ -58,3 +58,33 @@ class EvalSnapshot(BaseModel):
     n: int
     accuracy: float
     false_libre: int
+
+
+class FeedbackRef(BaseModel):
+    """Una etiqueta concreta (re-etiquetar cambia `labeled_at`)."""
+
+    video_id: str
+    labeled_at: str
+
+
+class FeedbackExample(FeedbackRef):
+    """Etiqueta del split dev pendiente de incorporar, con la ficha resumida y el motivo."""
+
+    label: Label
+    reason: str | None = None
+    summary: dict[str, Any]
+
+
+class RefreshResult(RefineResult):
+    """Propuesta de política a partir de las etiquetas pendientes (sin guardar)."""
+
+    base_version: int
+    feedback: list[FeedbackRef] = Field(default_factory=list)  # lo que se marcará al guardar
+
+
+class EditResult(BaseModel):
+    """Política editada según una instrucción del usuario (sin guardar)."""
+
+    content: PolicyContent
+    changelog: str
+    usage: AuthorUsage

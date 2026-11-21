@@ -1,4 +1,5 @@
-"""Las dos operaciones del editor agéntico: borrador desde preferencias y mejora con errores."""
+"""Operaciones del editor agéntico: borrador desde preferencias, mejora con errores,
+recalibración con las etiquetas pendientes y edición con una instrucción libre."""
 
 import re
 from typing import Any
@@ -7,15 +8,21 @@ from app.authoring import prompts
 from app.authoring.client import AuthoringError, ClaudeAuthorClient
 from app.authoring.models import (
     DraftResult,
+    EditResult,
     ErrorExample,
     EvalSnapshot,
+    FeedbackExample,
+    FeedbackRef,
     Preferences,
     RefineResult,
+    RefreshResult,
 )
 from app.models import Label
 from app.policy import AuxQuestion, PolicyContent, PolicyOption, PolicyQuestion
 
 MAX_ERROR_EXAMPLES = 25
+MAX_FEEDBACK_EXAMPLES = 60
+MAX_INSTRUCTION_CHARS = 2000
 _NON_ID = re.compile(r"[^a-z0-9_]+")
 
 
@@ -55,17 +62,76 @@ async def refine_with_errors(
         prompts.refine_user_message(draft, ranked[:MAX_ERROR_EXAMPLES], snapshot, prefs),
         prompts.refine_schema(),
     )
-    changelog = [str(item).strip() for item in data.get("changelog") or [] if str(item).strip()]
     return RefineResult(
         content=content_from_output(data, draft),
         rationale=str(data.get("rationale") or "").strip(),
-        changelog=changelog,
+        changelog=_changelog(data.get("changelog")),
         usage=usage,
     )
 
 
+def select_feedback(examples: list[FeedbackExample]) -> list[FeedbackExample]:
+    """Como mucho MAX_FEEDBACK_EXAMPLES: primero las que tienen motivo, luego las más recientes."""
+    newest_first = sorted(examples, key=lambda e: e.labeled_at, reverse=True)
+    ranked = sorted(newest_first, key=lambda e: not e.reason)  # estable: conserva el orden
+    return ranked[:MAX_FEEDBACK_EXAMPLES]
+
+
+async def refresh_with_feedback(
+    client: ClaudeAuthorClient,
+    current: PolicyContent,
+    examples: list[FeedbackExample],
+    base_version: int,
+) -> RefreshResult:
+    """Política revisada a partir de las etiquetas dev pendientes (motivos con peso alto).
+
+    `feedback` lista exactamente las etiquetas enviadas: son las que se marcarán como
+    incorporadas si el usuario guarda la propuesta.
+    """
+    selected = select_feedback(examples)
+    if not selected:
+        raise ValueError("no pending dev labels to learn from")
+    data, usage = await client.complete(
+        prompts.REFRESH_SYSTEM,
+        prompts.refresh_user_message(current, selected),
+        prompts.refresh_schema(),
+    )
+    return RefreshResult(
+        content=content_from_output(data, current),
+        rationale=str(data.get("rationale") or "").strip(),
+        changelog=_changelog(data.get("changelog")),
+        usage=usage,
+        base_version=base_version,
+        feedback=[FeedbackRef(video_id=e.video_id, labeled_at=e.labeled_at) for e in selected],
+    )
+
+
+async def edit_with_instruction(
+    client: ClaudeAuthorClient, policy: PolicyContent, instruction: str
+) -> EditResult:
+    """Aplica una instrucción libre («quita lo de Fireship») a la política, sin guardar."""
+    instruction = instruction.strip()
+    if not instruction:
+        raise ValueError("instruction is empty")
+    data, usage = await client.complete(
+        prompts.EDIT_SYSTEM,
+        prompts.edit_user_message(policy, instruction[:MAX_INSTRUCTION_CHARS]),
+        prompts.edit_schema(),
+    )
+    return EditResult(
+        content=content_from_output(data, policy),
+        changelog=" ".join(str(data.get("changelog") or "").split()),
+        usage=usage,
+    )
+
+
+def _changelog(raw: Any) -> list[str]:
+    return [str(item).strip() for item in raw or [] if str(item).strip()]
+
+
 def content_from_output(data: dict[str, Any], base: PolicyContent) -> PolicyContent:
-    """Salida estructurada → `PolicyContent` (listas de canales e id de pregunta de `base`)."""
+    """Salida estructurada → `PolicyContent`. El id de la pregunta sale de `base`, y también las
+    listas de canales salvo que la salida traiga las suyas (recalibración y edición)."""
     instructions = str(data.get("instructions") or "").strip()
     options_raw = data.get("options") or {}
     options = {}
@@ -79,8 +145,26 @@ def content_from_output(data: dict[str, Any], base: PolicyContent) -> PolicyCont
     return PolicyContent(
         question=PolicyQuestion(id=base.question.id, instructions=instructions, options=options),
         auxiliary_questions=_aux_questions(data.get("auxiliary_questions") or []),
-        channel_lists=base.channel_lists,
+        channel_lists=_channel_lists(data.get("channel_lists"), base),
     )
+
+
+def _channel_lists(raw: Any, base: PolicyContent) -> dict[Label, list[str]]:
+    """Listas de la salida (sin vacíos ni duplicados; cada canal en una sola lista) o las de
+    `base` si la salida no trae listas."""
+    if not isinstance(raw, dict):
+        return base.channel_lists
+    lists: dict[Label, list[str]] = {}
+    seen: set[str] = set()
+    for label in Label:
+        names = raw.get(label.value)
+        lists[label] = []
+        for name in names if isinstance(names, list) else []:
+            clean = " ".join(str(name).split())
+            if clean and clean.casefold() not in seen:
+                seen.add(clean.casefold())
+                lists[label].append(clean)
+    return lists
 
 
 def aux_id(raw: str, index: int) -> str:

@@ -1,5 +1,6 @@
 // Manual mode: edit the policy by hand (form or raw YAML) and save it.
 import { optionsApi } from '../api';
+import { AiEditBox } from '../components/ai-edit';
 import { viewHeader } from '../components/header';
 import { PolicyEditor } from '../components/policy-editor';
 import { errorNotice, notice, show, spinner } from '../components/status';
@@ -41,13 +42,15 @@ class ManualEditor {
   private readonly yamlPane = h('div', { className: 'hidden' });
   private readonly status = h('div', { className: 'status-slot' });
   private readonly meta = h('p', { className: 'muted small' });
+  private readonly aiEdit: AiEditBox;
 
   constructor(body: HTMLElement, policy: PolicyOut) {
     this.policy = policy;
     this.editor = new PolicyEditor(policy.content, { showChannels: true });
     this.yamlArea.value = policy.yaml;
     this.yamlToggle.addEventListener('change', () => this.toggleYaml());
-    this.formPane.append(this.editor.element);
+    this.aiEdit = new AiEditBox({ getPolicy: () => this.editor.getPolicy(), setPolicy: (p) => this.editor.setPolicy(p) });
+    this.formPane.append(this.aiEdit.element, this.editor.element);
     this.yamlPane.append(
       notice('info', 'Modo avanzado: se guarda el YAML tal cual (el servicio lo valida). Los cambios sin guardar del formulario no aparecen aquí, y viceversa.'),
       this.yamlArea,
@@ -56,7 +59,7 @@ class ManualEditor {
     const toolbar = h(
       'div',
       { className: 'toolbar' },
-      h('label', { className: 'switch' }, this.yamlToggle, h('span', { text: 'YAML avanzado' })),
+      h('div', { className: 'toolbar-group' }, h('label', { className: 'switch' }, this.yamlToggle, h('span', { text: 'YAML avanzado' })), this.aiEdit.trigger),
       this.meta,
     );
     body.replaceChildren(toolbar, this.formPane, this.yamlPane, h('div', { className: 'actions sticky' }, this.status, save));
@@ -67,6 +70,7 @@ class ManualEditor {
     const yaml = this.yamlToggle.checked;
     this.formPane.classList.toggle('hidden', yaml);
     this.yamlPane.classList.toggle('hidden', !yaml);
+    this.aiEdit.trigger.classList.toggle('hidden', yaml); // the AI edits the form, not the raw YAML
   }
 
   private async save(): Promise<void> {

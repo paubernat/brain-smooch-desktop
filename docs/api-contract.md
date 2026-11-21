@@ -90,7 +90,8 @@ Los usa la página de opciones de la extensión («Configura tu perfil»). La po
 `{"version": 3, "policy_version": "3-424f6405", "content": PolicyContent, "yaml": "texto del fichero"}`
 
 ### `PUT /policy`
-Cuerpo: exactamente uno de `{"content": PolicyContent}` o `{"yaml": "..."}` (modo avanzado; su `version` se ignora), más `"expected_version"` opcional.
+Cuerpo: exactamente uno de `{"content": PolicyContent}` o `{"yaml": "..."}` (modo avanzado; su `version` se ignora), más `"expected_version"` opcional y `"incorporate": [{"video_id": "...", "labeled_at": "..."}]` opcional (el `feedback` de `POST /policy/refresh`: esas etiquetas se marcan como incorporadas con la versión nueva; solo cuentan las del split dev cuyo `labeled_at` no haya cambiado).
+Respuesta: como `GET /policy` más `"incorporated": N`.
 - Sube `version`, archiva la anterior en `policy/history/v<N>.yaml` y escribe de forma atómica. Antes de escribir valida con el modelo `Policy` y comprueba el round-trip; las claves `NO`/`LIBRE` (y valores como `no`) van entre comillas.
 - `200` con lo mismo que `GET /policy`. `409` si `expected_version` no coincide con la versión en disco. `422` si el YAML o el contenido no son válidos.
 
@@ -125,6 +126,27 @@ En `dry_run` los campos de resultados (`n`, `accuracy`…) van a cero/`null`. `e
 `{"draft": PolicyContent, "errors": [{"video_id": "...", "predicted": "LIBRE", "confidence": 0.74}], "config": "D", "preferences": {...} | null, "snapshot": {"n": 42, "accuracy": 0.81, "false_libre": 2} | null}`.
 El servicio resume las fichas (mismos niveles que `config`) y toma la etiqueta real de la base de datos; ignora vídeos que no estén en `dev` o que no sean errores. Envía a Claude como mucho 25 (falsos LIBRE primero).
 Respuesta: como `/policy/draft` más `"changelog": ["..."]`. `422` si no queda ningún error dev válido.
+
+### `POST /policy/edit`
+`{"policy": PolicyContent, "instruction": "quita lo de Fireship"}` → Claude aplica solo esa instrucción (puede tocar `channel_lists`). No guarda nada.
+Respuesta: `{"content": PolicyContent, "changelog": "una frase", "usage": {...}}`. `422` si la instrucción está vacía, `503` sin clave, `502` si Claude falla.
+
+### Recalibración: `GET /policy/feedback` y `POST /policy/refresh`
+Cada etiqueta (con su «motivo») queda **pendiente** hasta que se incorpora a la política (tabla `policy_feedback`; re-etiquetar un vídeo lo vuelve a dejar pendiente). Solo el split **dev** alimenta la recalibración; las pendientes de test solo se cuentan.
+
+`GET /policy/feedback` (`?items=false` omite la lista; lo usa el panel):
+```json
+{
+  "split": "dev", "pending": 12, "by_label": {"NO": 8, "LIMITADO": 3, "LIBRE": 1},
+  "with_reason": 2, "pending_test": 7, "hint_threshold": 20,
+  "items": [{"video_id": "...", "title": "...", "channel": "...", "label": "LIMITADO",
+             "reason": "añade este canal a los limitados", "is_short": false, "labeled_at": "..."}]
+}
+```
+`items`: solo dev, más recientes primero.
+
+`POST /policy/refresh` `{"config": "D"}` (opcional; niveles de la ficha que se resumen) → Claude propone una política revisada a partir de la vigente y de las etiquetas dev pendientes (como mucho 60: primero las que tienen motivo, que se tratan como criterios explícitos; luego las más recientes). No guarda.
+Respuesta: como `/policy/refine` más `"base_version": 3` y `"feedback": [{"video_id": "...", "labeled_at": "..."}]` (lo que hay que mandar en `incorporate` al guardar). `422` si no hay pendientes dev.
 
 ### `GET /judges`
 ```json

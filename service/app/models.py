@@ -180,6 +180,19 @@ class Stats(BaseModel):
     with_transcript: int = 0
 
 
+class PendingLabel(BaseModel):
+    """Etiqueta aún no incorporada a la política (recalibración)."""
+
+    video_id: str
+    title: str
+    channel: str | None = None
+    label: Label
+    reason: str | None = None
+    split: Split
+    is_short: bool = False
+    labeled_at: str
+
+
 # --- Jueces (PLAN §9) --------------------------------------------------------------------------
 
 

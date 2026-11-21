@@ -1,13 +1,15 @@
-// Hash router: #manual, #agentica, anything else is the landing screen.
+// Hash router: #manual, #agentica, #calibracion (landing scrolled to the
+// calibration card), anything else is the landing screen.
 
-export type Route = 'landing' | 'manual' | 'agentic';
+export type Route = 'landing' | 'manual' | 'agentic' | 'calibration';
 
-const HASHES: Record<Route, string> = { landing: '', manual: '#manual', agentic: '#agentica' };
+const HASHES: Record<Route, string> = { landing: '', manual: '#manual', agentic: '#agentica', calibration: '#calibracion' };
 
 export function parseRoute(hash: string): Route {
   const clean = hash.replace(/^#\/?/, '#').toLowerCase();
   if (clean === HASHES.manual) return 'manual';
   if (clean === HASHES.agentic) return 'agentic';
+  if (clean === HASHES.calibration) return 'calibration';
   return 'landing';
 }
 

@@ -98,3 +98,25 @@ export interface LabelResponse {
   split: 'dev' | 'test';
   labeled_at: string;
 }
+
+/** A label not yet incorporated into the policy (GET /policy/feedback). */
+export interface FeedbackItem {
+  video_id: string;
+  title: string;
+  channel: string | null;
+  label: Label;
+  reason: string | null;
+  is_short: boolean;
+  labeled_at: string;
+}
+
+/** Pending labels: only the dev split feeds a policy refresh; test is shown as info. */
+export interface FeedbackSummary {
+  split: 'dev';
+  pending: number;
+  by_label: Record<Label, number>;
+  with_reason: number;
+  pending_test: number;
+  hint_threshold: number;
+  items: FeedbackItem[];
+}

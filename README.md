@@ -17,7 +17,7 @@ npm run sign    # firma "unlisted" en AMO -> extension/web-ext-artifacts/*.xpi
 ```
 
 - **Arquitectura:** `page-bridge.js` corre en el mundo de la página (`world: "MAIN"`, `document_start`): lee el player response (`movie_player` / `#shorts-player` / respuestas interceptadas de `/youtubei/v1/player` y `/reel/` / `ytInitialPlayerResponse`) y descarga los subtítulos. `content.js` construye la ficha y muestra el panel. Las llamadas HTTP a `http://127.0.0.1:8765` las hace `background.js` (origen `moz-extension://`, sin CORS de youtube.com).
-- **Panel:** abajo a la derecha. `Alt+1` NO, `Alt+2` LIMITADO, `Alt+3` LIBRE; campo "motivo" opcional; indicador L1–L4.
+- **Panel:** abajo a la derecha. `Alt+1` NO, `Alt+2` LIMITADO, `Alt+3` LIBRE (Alt izquierdo; AltGr no cuenta); campo "motivo" opcional; indicador L1–L4; contador de etiquetas pendientes de incorporar a la política. Si etiquetas antes de que se guarde la ficha, la etiqueta se envía en cuanto se guarda; si el vídeo ya ha cambiado (scroll de Shorts), se rechaza.
 - **Debug / spike:** `localStorage.setItem('bsd-debug', '1')` en youtube.com. Ver [extension/SPIKE.md](extension/SPIKE.md).
 - **Puerto del servicio:** 8765 por defecto; cambiable con `browser.storage.local.set({ servicePort: N })`.
 - **Instalación permanente:** Firefox normal solo instala extensiones firmadas. Poner `AMO_JWT_ISSUER` y `AMO_JWT_SECRET` (claves de API de addons.mozilla.org → *Developer Hub → Manage API Keys*) en `.env` en la raíz y ejecutar `npm run sign`. La firma unlisted no publica la extensión. Hay que subir `version` en `manifest.json` antes de cada nueva firma. El `.xpi` resultante se instala arrastrándolo a Firefox.
@@ -28,7 +28,9 @@ npm run sign    # firma "unlisted" en AMO -> extension/web-ext-artifacts/*.xpi
 
 - **Configuración manual:** instrucciones, descripciones de LIBRE / LIMITADO / NO, preguntas auxiliares y listas de canales; con «YAML avanzado» se edita el fichero tal cual.
 - **Configuración agéntica:** (1) describes cada categoría con tus palabras; (2) Claude (`POLICY_AUTHOR_MODEL`, por defecto `claude-sonnet-5-5`; requiere `ANTHROPIC_API_KEY`) redacta un borrador editable; (3) se evalúa con el juez elegido (por defecto, el más barato con clave) sobre tus etiquetas del split **dev**, primero con estimación de coste; «Mejorar con IA» manda los errores a Claude y propone una versión revisada con changelog; (4) guardar.
-- El split **test** nunca se usa aquí: queda para la ablación final. Con menos de 10 etiquetas dev, el paso 3 se puede saltar.
+- **✨ Editar con IA** (paso 2 del asistente y editor manual): escribes una instrucción («añade que los podcasts de tecnología son LIMITADO», «quita lo de Fireship») y Claude edita el borrador; se puede deshacer y no se guarda hasta pulsar «Guardar».
+- **Calibración** (en la portada, `#calibracion`): las etiquetas y motivos que pones en YouTube quedan *pendientes*; «Refrescar política» pide a Claude una versión revisada (los motivos cuentan como criterios explícitos) y la muestra como diff + changelog; al aceptarla se guarda y esas etiquetas pasan a incorporadas. Con 20 o más pendientes, el panel sugiere refrescar.
+- El split **test** nunca se usa aquí: queda para la ablación final (en calibración solo se muestra cuántas hay). Con menos de 10 etiquetas dev, el paso 3 se puede saltar.
 - Cada guardado sube `version` en `policy/policy.yaml` y deja la anterior en `policy/history/v<N>.yaml`. Endpoints en [docs/api-contract.md](docs/api-contract.md).
 
 ## Judges & ablation
