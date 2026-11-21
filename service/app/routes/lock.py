@@ -67,7 +67,7 @@ def _status(ctx: Ctx, session: Session | None) -> LockStatus:
 
 def _open_session(ctx: Ctx, response: Response) -> Session:
     session = ctx.lock.sessions.create()
-    set_session_cookie(response, session)
+    set_session_cookie(response, session, ctx.lock.sessions.ttl_s)
     return session
 
 

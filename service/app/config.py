@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     policy_author_timeout_s: float = 180.0
     # Juez en directo: espera máxima a L2/L4 antes de decidir con lo que haya.
     live_wait_s: float = 8.0
+    # Duración de la sesión de administrador tras meter la contraseña; 0 = un solo uso.
+    admin_session_s: float = 600.0
     live_poll_s: float = 0.5
 
     @property

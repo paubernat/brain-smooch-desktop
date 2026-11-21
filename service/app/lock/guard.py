@@ -66,3 +66,5 @@ class LockGuard:
                 kind, payload, relaxations, delay, base_version=base_version
             )
             raise RelaxDeferred(created)
+        if self.sessions.single_use:
+            self.sessions.revoke(session.token)

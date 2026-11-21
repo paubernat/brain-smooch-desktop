@@ -14,6 +14,9 @@ from dataclasses import dataclass
 from fastapi import Request, Response
 
 SESSION_TTL_S = 600
+# Con `admin_session_s = 0` la sesión es de un solo uso: sirve para la siguiente acción que
+# relaja (con este margen para hacerla) y se cierra en cuanto se usa.
+SINGLE_USE_GRACE_S = 60
 COOKIE_NAME = "bs_admin"
 CSRF_HEADER = "X-CSRF-Token"
 
@@ -29,7 +32,8 @@ class Session:
 
 class SessionManager:
     def __init__(self, ttl_s: float = SESSION_TTL_S, clock: Clock = time.time) -> None:
-        self._ttl_s = ttl_s
+        self.single_use = ttl_s <= 0
+        self._ttl_s = SINGLE_USE_GRACE_S if self.single_use else ttl_s
         self._clock = clock
         self._sessions: dict[str, Session] = {}
 
@@ -42,6 +46,10 @@ class SessionManager:
         )
         self._sessions[session.token] = session
         return session
+
+    @property
+    def ttl_s(self) -> float:
+        return self._ttl_s
 
     def get(self, token: str | None) -> Session | None:
         if not token:

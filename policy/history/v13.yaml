@@ -1,0 +1,69 @@
+# Política de decisión (PLAN §8). Editable a mano o desde «Configura tu perfil» en la
+# extensión. Cada guardado sube `version`; las anteriores quedan en policy/history/.
+version: 13
+model_version: 13
+question:
+  id: tier
+  type: choice
+  instructions: >-
+    Clasifica este vídeo de YouTube según cómo quiere usar YouTube su dueño: formación y música de calidad
+    sin límite, entretenimiento largo y explicadores con sustancia con cupo, y nada de contenido adictivo,
+    viral, de relleno, gaming, deportes ni política de actualidad. Primero aplica la lista de canales;
+    si no hay regla, compara la ficha con los criterios de cada opción. Ante la duda, LIMITADO.
+  options:
+    "NO":
+      description: >-
+        Videojuegos y su actualidad (League of Legends, esports, GTA 6, ajedrez de retos), también directos
+        y maratones de gameplay de canales listados. Deportes de cualquier tipo, con highlights o análisis
+        (NBA, tenis de mesa, disc golf, escalada). Política de actualidad: noticias del día, campañas,
+        elecciones, debates, discursos, rankings de candidatos y comentario partidista (laSexta, El País,
+        WSJ, Sanders, HasanAbi). Shorts de relleno, clips virales, sketches, humor con IA, retos, memes,
+        listas sensacionalistas. Música tangencial.
+    LIMITADO:
+      description: >-
+        Entretenimiento largo con cupo: commentary, humor, vlogs, podcasts y shows de creadores aceptados
+        (The Yard, dunkey, orslok, Gattsu), reseñas humorísticas de juegos, experimentos DIY (I did a
+        thing). Explicadores largos de contexto sobre geopolítica, política, temas militares o negocios
+        e IA, sin última hora ni partidismo (WarFronts, TLDR, Max Fisher). Ante la duda, LIMITADO. Explicador
+        de contexto = LIMITADO; noticia del día o ranking de candidatos = NO.
+    LIBRE:
+      description: >-
+        Música con sustancia: alguien tocando (piano, jazz) con los acordes o la partitura en pantalla,
+        explicaciones de acordes, voicings, armonía o melodía, transcripciones, covers y tutoriales de
+        cómo tocar temas (Jeff Schneider, Iliya Javadian). Técnico de calidad: arquitectura de software,
+        tutoriales de Azure, IA explicada con rigor por fuentes con criterio (canales que hablan de las
+        cosas con propiedad, p. ej. Fireship o DeepSeek). Shorts incluidos si cumplen esto.
+auxiliary_questions:
+- id: is_music_education
+  type: boolean
+  instructions: >-
+    ¿Enseña o muestra música con sustancia (acordes, armonía, partitura, transcripción, tutorial)?
+- id: is_gaming
+  type: boolean
+  instructions: >-
+    ¿Trata principalmente sobre videojuegos, ajedrez de retos o un directo de gameplay?
+- id: is_sports
+  type: boolean
+  instructions: ¿Trata principalmente sobre deportes (incluye highlights, análisis o escalada)?
+- id: is_political_news
+  type: boolean
+  instructions: >-
+    ¿Es política de actualidad: noticias del día, campañas, debates, discursos o comentario partidista?
+- id: is_context_explainer
+  type: boolean
+  instructions: >-
+    ¿Es un explicador largo y analítico de política, geopolítica o negocios que da contexto sin ser noticia
+    del día?
+- id: is_short_viral_filler
+  type: boolean
+  instructions: >-
+    ¿Es un Short o clip viral, sketch o contenido de relleno sin relación con música o tecnología de calidad?
+channel_lists:
+  "NO": []
+  LIMITADO: [Atrioc, dunkey, Ludwig, The Yard, Good Work, Cheese Factory, geopold, orslok, WarFronts,
+    Big A]
+  LIBRE: [Fireship, DeepSeek]
+rules:
+  block_ai_labeled: true
+  block_live: true
+blocked_sites: [twitch.tv]

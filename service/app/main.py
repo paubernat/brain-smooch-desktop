@@ -79,7 +79,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 poll_s=settings.live_poll_s,
             )
             guard = LockGuard(
-                PasswordVault(database), SessionManager(), RelaxRequestStore(database)
+                PasswordVault(database),
+                SessionManager(settings.admin_session_s),
+                RelaxRequestStore(database),
             )
             ctx = AppState(
                 settings,
