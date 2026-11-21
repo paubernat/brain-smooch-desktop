@@ -5,7 +5,6 @@ import contextlib
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
 
 import httpx
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
@@ -16,19 +15,15 @@ from app.config import Settings, get_settings
 from app.enrich.channel import ChannelEnricher
 from app.enrich.pipeline import EnrichmentPipeline
 from app.models import FichaIn, FichaOut, LabelIn, LabelOut, Stats
+from app.policy_store import PolicyStore
+from app.routes import judges as judges_routes
+from app.routes import policy as policy_routes
+from app.state import AppState, get_ctx
 
 EXTENSION_ORIGIN_REGEX = r"^moz-extension://.*$"
 USER_AGENT = "brain-smooch-service/0.1"
 
 log = logging.getLogger(__name__)
-
-
-@dataclass
-class AppState:
-    settings: Settings
-    database: db.Database
-    pipeline: EnrichmentPipeline
-    channels: ChannelEnricher
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -52,7 +47,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 cache_days=settings.channel_cache_days,
             )
             pipeline = EnrichmentPipeline(database, client, channels, settings.data_dir)
-            app.state.ctx = AppState(settings, database, pipeline, channels)
+            policies = PolicyStore(settings.policy_path, settings.policy_history_dir)
+            app.state.ctx = AppState(settings, database, pipeline, channels, client, policies)
             tasks = [asyncio.create_task(channels.run_forever())]
             tasks += [asyncio.create_task(pipeline.enrich_frames(v)) for v in pipeline.resume()]
             try:
@@ -68,15 +64,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origin_regex=EXTENSION_ORIGIN_REGEX,
-        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_methods=["GET", "POST", "PUT", "OPTIONS"],
         allow_headers=["Content-Type"],
     )
     _register_routes(app)
+    app.include_router(policy_routes.router)
+    app.include_router(judges_routes.router)
     return app
 
 
 def _ctx(request: Request) -> AppState:
-    return request.app.state.ctx
+    return get_ctx(request)
 
 
 def _register_routes(app: FastAPI) -> None:

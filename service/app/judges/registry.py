@@ -3,6 +3,7 @@
 from collections.abc import Callable
 
 import httpx
+from pydantic import BaseModel
 
 from app.config import Settings
 from app.judges.base import HttpJudge, Judge
@@ -24,6 +25,40 @@ JUDGES: dict[str, tuple[JudgeFactory, str]] = {
 
 class MissingApiKeyError(RuntimeError):
     pass
+
+
+class JudgeInfo(BaseModel):
+    """Juez disponible para la UI. Solo dice si hay clave, nunca su valor."""
+
+    key: str
+    key_env: str
+    key_configured: bool
+    input_per_mtok: float | None = None
+    output_per_mtok: float | None = None
+
+
+def judge_catalog(settings: Settings, pricing: Pricing) -> list[JudgeInfo]:
+    infos = []
+    for key, (_, key_attr) in JUDGES.items():
+        price = pricing.models.get(key)
+        infos.append(
+            JudgeInfo(
+                key=key,
+                key_env=key_attr.upper(),
+                key_configured=bool(getattr(settings, key_attr)),
+                input_per_mtok=price.input_per_mtok if price else None,
+                output_per_mtok=price.output_per_mtok if price else None,
+            )
+        )
+    return infos
+
+
+def default_judge(infos: list[JudgeInfo]) -> str | None:
+    """El juez más barato (precio de entrada) con clave configurada."""
+    usable = [i for i in infos if i.key_configured and i.input_per_mtok is not None]
+    if not usable:
+        return None
+    return min(usable, key=lambda i: (i.input_per_mtok, i.output_per_mtok or 0.0)).key
 
 
 def create_judge(

@@ -22,6 +22,10 @@
     "*://*.ytimg.com/*",
     "http://127.0.0.1/*"
   ],
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
   "background": {
     "scripts": ["background.js"]
   },

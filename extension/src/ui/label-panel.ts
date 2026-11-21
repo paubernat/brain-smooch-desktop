@@ -9,6 +9,7 @@ export type StatusKind = 'info' | 'ok' | 'error';
 export interface PanelHandlers {
   onLabel: (label: Label, reason: string) => void;
   onRetry: () => void;
+  onOpenSettings: () => void;
 }
 
 type LevelView = Partial<Record<keyof LevelStatus, string>>;
@@ -55,7 +56,13 @@ export class LabelPanel {
   private build(): void {
     const head = h('div', 'head');
     head.title = 'Brain Smooch: click to collapse / expand';
-    head.append(h('span', 'brand', 'BSD'), this.levelsEl, this.currentEl);
+    const settings = h('button', 'icon', '⚙');
+    settings.title = 'Configura tu perfil';
+    settings.addEventListener('click', (e) => {
+      e.stopPropagation(); // don't collapse the panel
+      this.handlers.onOpenSettings();
+    });
+    head.append(h('span', 'brand', 'BSD'), this.levelsEl, this.currentEl, settings);
     head.addEventListener('click', () => this.panel.classList.toggle('collapsed'));
 
     const body = h('div', 'body');

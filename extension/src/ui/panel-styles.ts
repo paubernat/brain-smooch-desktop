@@ -33,6 +33,8 @@ button.NO { background: #991b1b; }
 button.LIMITADO { background: #92400e; }
 button.LIBRE { background: #166534; }
 button.selected { border-color: #f9fafb; box-shadow: 0 0 0 1px #f9fafb inset; }
+button.icon { flex: none; padding: 0 4px; background: none; color: #9ca3af; font-weight: 400; font-size: 13px; line-height: 1; }
+button.icon:hover { color: #f9fafb; }
 button.link { flex: none; background: none; border: none; padding: 0; color: #93c5fd; font-weight: 400; text-decoration: underline; }
 input {
   width: 100%; box-sizing: border-box; font: inherit; padding: 4px 6px; margin-bottom: 6px;

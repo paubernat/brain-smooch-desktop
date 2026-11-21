@@ -38,12 +38,22 @@ class AuxQuestion(BaseModel):
         return self.instructions or f"¿{self.id.replace('_', ' ')}?"
 
 
-class Policy(BaseModel):
-    version: int
+class PolicyContent(BaseModel):
+    """Parte editable de la política (todo menos `version` y el hash)."""
+
     question: PolicyQuestion
     auxiliary_questions: list[AuxQuestion] = Field(default_factory=list)
     channel_lists: dict[Label, list[str]] = Field(default_factory=dict)
+
+
+class Policy(PolicyContent):
+    version: int
     sha256: str = ""
+
+    def content(self) -> PolicyContent:
+        return PolicyContent.model_validate(
+            self.model_dump(include=set(PolicyContent.model_fields))
+        )
 
     @property
     def policy_version(self) -> str:

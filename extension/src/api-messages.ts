@@ -7,13 +7,18 @@
 // permission, is not subject to the page's CORS; the service only has to
 // allow moz-extension:// origins.
 
-export type HttpMethod = 'GET' | 'POST';
+export type HttpMethod = 'GET' | 'POST' | 'PUT';
 
 export interface ApiRequestMessage {
   type: 'bsd-api';
   method: HttpMethod;
   path: string;
   body?: unknown;
+}
+
+/** Content scripts cannot call runtime.openOptionsPage(); they ask the background. */
+export interface OpenOptionsMessage {
+  type: 'bsd-open-options';
 }
 
 export type ApiResult<T> =
@@ -26,4 +31,8 @@ export const ALLOWED_PATHS = /^\/(health|fichas(\/[A-Za-z0-9_-]{11})?|labels(\/s
 export function isApiRequest(msg: unknown): msg is ApiRequestMessage {
   const m = msg as ApiRequestMessage;
   return !!m && m.type === 'bsd-api' && (m.method === 'GET' || m.method === 'POST') && typeof m.path === 'string';
+}
+
+export function isOpenOptions(msg: unknown): msg is OpenOptionsMessage {
+  return !!msg && (msg as OpenOptionsMessage).type === 'bsd-open-options';
 }

@@ -23,6 +23,7 @@ const panel = new LabelPanel({
     const ref = parseVideoUrl(location.href);
     if (ref) void processVideo(ref);
   },
+  onOpenSettings: () => void api.openOptions(),
 });
 
 function applyFicha(ficha: FichaResponse): void {

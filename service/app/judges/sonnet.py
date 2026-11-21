@@ -9,6 +9,14 @@ API (las notas solo cubren lo específico de structured outputs y visión).
 import json
 from typing import Any
 
+from app.anthropic_api import (
+    ANTHROPIC_URL,
+    SONNET_MODEL,
+    anthropic_headers,
+    output_text,
+    structured_request,
+    usage_tokens,
+)
 from app.judges.base import (
     FALLBACK_LABEL,
     HttpJudge,
@@ -21,9 +29,8 @@ from app.judges.base import (
 from app.models import FichaView, Label, Verdict
 from app.policy import Policy
 
-ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
-ANTHROPIC_VERSION = "2026-10-21"
-SONNET_MODEL = "claude-sonnet-5-5"
+__all__ = ["ANTHROPIC_URL", "SonnetJudge"]
+
 MAX_TOKENS = 1024
 
 
@@ -69,11 +76,7 @@ class SonnetJudge(HttpJudge):
     url = ANTHROPIC_URL
 
     def headers(self) -> dict[str, str]:
-        return {
-            "x-api-key": self.api_key,
-            "anthropic-version": ANTHROPIC_VERSION,
-            "content-type": "application/json",
-        }
+        return anthropic_headers(self.api_key)
 
     def build_request(self, ficha: FichaView, policy: Policy) -> dict[str, Any]:
         # Imágenes antes del texto (recomendación de la documentación de visión).
@@ -85,17 +88,10 @@ class SonnetJudge(HttpJudge):
             for i in self.images(ficha)
         ]
         content.append({"type": "text", "text": build_prompt(ficha, policy)})
-        return {
-            "model": self.model,
-            "max_tokens": MAX_TOKENS,
-            "messages": [{"role": "user", "content": content}],
-            "output_config": {"format": {"type": "json_schema", "schema": output_schema(policy)}},
-        }
+        return structured_request(self.model, MAX_TOKENS, content, output_schema(policy))
 
     def parse_response(self, data: dict[str, Any], policy: Policy, latency_ms: int) -> Verdict:
-        usage = data.get("usage") or {}
-        input_tokens = int(usage.get("input_tokens") or 0)
-        output_tokens = int(usage.get("output_tokens") or 0)
+        input_tokens, output_tokens = usage_tokens(data)
         common = {
             "input_tokens": input_tokens,
             "cost_usd": self.cost(input_tokens, output_tokens),
@@ -107,9 +103,7 @@ class SonnetJudge(HttpJudge):
             aux = {"refused": True, "stop_reason": stop_reason}
             return Verdict(label=FALLBACK_LABEL, probs={}, confidence=0.0, aux=aux, **common)
 
-        text = next(
-            (b.get("text") for b in data.get("content") or [] if b.get("type") == "text"), None
-        )
+        text = output_text(data)
         try:
             parsed = json.loads(text) if isinstance(text, str) else None
         except json.JSONDecodeError as exc:

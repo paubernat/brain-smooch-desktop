@@ -24,7 +24,10 @@ class Settings(BaseSettings):
     http_timeout_s: float = 20.0
     judge_timeout_s: float = 60.0
     policy_path: Path = REPO_ROOT / "policy" / "policy.yaml"
+    policy_history_dir: Path = REPO_ROOT / "policy" / "history"
     pricing_path: Path = REPO_ROOT / "service" / "pricing.yaml"
+    policy_author_model: str = "claude-sonnet-5-5"  # editor agéntico de la política
+    policy_author_timeout_s: float = 180.0
 
     @property
     def db_path(self) -> Path:

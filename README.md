@@ -22,6 +22,15 @@ npm run sign    # firma "unlisted" en AMO -> extension/web-ext-artifacts/*.xpi
 - **Puerto del servicio:** 8765 por defecto; cambiable con `browser.storage.local.set({ servicePort: N })`.
 - **Instalación permanente:** Firefox normal solo instala extensiones firmadas. Poner `AMO_JWT_ISSUER` y `AMO_JWT_SECRET` (claves de API de addons.mozilla.org → *Developer Hub → Manage API Keys*) en `.env` en la raíz y ejecutar `npm run sign`. La firma unlisted no publica la extensión. Hay que subir `version` en `manifest.json` antes de cada nueva firma. El `.xpi` resultante se instala arrastrándolo a Firefox.
 
+## Perfil / onboarding
+
+«Configura tu perfil» es la página de opciones de la extensión. Se abre sola al instalarla, desde el botón ⚙ del panel de etiquetado o en `about:addons` → la extensión → *Preferencias*. Necesita el servicio arrancado (`cd service && uv run python -m app`).
+
+- **Configuración manual:** instrucciones, descripciones de LIBRE / LIMITADO / NO, preguntas auxiliares y listas de canales; con «YAML avanzado» se edita el fichero tal cual.
+- **Configuración agéntica:** (1) describes cada categoría con tus palabras; (2) Claude (`POLICY_AUTHOR_MODEL`, por defecto `claude-sonnet-5-5`; requiere `ANTHROPIC_API_KEY`) redacta un borrador editable; (3) se evalúa con el juez elegido (por defecto, el más barato con clave) sobre tus etiquetas del split **dev**, primero con estimación de coste; «Mejorar con IA» manda los errores a Claude y propone una versión revisada con changelog; (4) guardar.
+- El split **test** nunca se usa aquí: queda para la ablación final. Con menos de 10 etiquetas dev, el paso 3 se puede saltar.
+- Cada guardado sube `version` en `policy/policy.yaml` y deja la anterior en `policy/history/v<N>.yaml`. Endpoints en [docs/api-contract.md](docs/api-contract.md).
+
 ## Judges & ablation
 
 Jueces en `service/app/judges/` (Liquid `d1.2-ultra`/`d1.2`, OpenAI Decisions `gpt-6-luna`, Claude Sonnet opcional), implementados con `httpx` según [docs/judges-api-notes.md](docs/judges-api-notes.md). Claves en `.env`: `LIQUID_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`. Precios en `service/pricing.yaml`; política en `policy/policy.yaml` (`policy_version` = `<version>-<sha256[:8]>`).

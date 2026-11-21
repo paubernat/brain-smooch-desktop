@@ -14,6 +14,7 @@ const options = {
     background: 'src/background.ts',
     content: 'src/content.ts',
     'page-bridge': 'src/page-bridge.ts',
+    options: 'src/options/main.ts',
   },
   outdir: dist,
   bundle: true,
@@ -29,6 +30,7 @@ rmSync(dist, { recursive: true, force: true });
 mkdirSync(dist, { recursive: true });
 cpSync(join(root, 'manifest.json'), join(dist, 'manifest.json'));
 cpSync(join(root, 'icons'), join(dist, 'icons'), { recursive: true });
+for (const file of ['options.html', 'options.css']) cpSync(join(root, 'options', file), join(dist, file));
 
 if (watch) {
   const ctx = await context(options);

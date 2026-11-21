@@ -6,11 +6,20 @@ declare namespace browser.runtime {
     url?: string;
     tab?: { id?: number; url?: string };
   }
+  interface InstalledDetails {
+    reason: 'install' | 'update' | 'browser_update' | 'shared_module_update';
+    previousVersion?: string;
+    temporary?: boolean;
+  }
   function sendMessage(message: unknown): Promise<unknown>;
+  function openOptionsPage(): Promise<void>;
   const onMessage: {
     addListener(
       callback: (message: unknown, sender: MessageSender) => Promise<unknown> | undefined | void,
     ): void;
+  };
+  const onInstalled: {
+    addListener(callback: (details: InstalledDetails) => void): void;
   };
 }
 
