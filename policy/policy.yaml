@@ -40,3 +40,6 @@ channel_lists:                # reglas fijas; se aplican antes del modelo
   LIMITADO: [Atrioc, dunkey, Ludwig, The Yard, Good Work, Cheese Factory, geopold, orslok]  # TODO: confirmar nombres y pasar a channel_id
   LIBRE: [Fireship, DeepSeek]  # TODO: completar
   NO: []
+rules:                        # reglas fijas (producción); no participan en la ablación
+  block_ai_labeled: false     # NO a vídeos con la etiqueta de YouTube «Contenido alterado o sintético»
+  block_live: false           # NO a directos en curso y programados (las grabaciones, el modelo)

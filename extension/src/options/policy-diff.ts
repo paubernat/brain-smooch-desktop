@@ -1,7 +1,7 @@
 // Pure diff between two policies: which fields changed, and a word-level diff
 // of each changed text (for the calibration and AI-edit views).
 import { LABELS } from '../types';
-import { formatChannelList } from './policy-form';
+import { formatChannelList, normalizeRules, RULE_SWITCHES } from './policy-form';
 import type { PolicyContent } from './types';
 
 export interface FieldChange {
@@ -25,12 +25,21 @@ function auxText(policy: PolicyContent): string {
   return policy.auxiliary_questions.map((a) => `${a.id}: ${a.instructions ?? ''}`.trim()).join('\n');
 }
 
+/** Enabled rules, one per line (empty when none). */
+export function rulesText(policy: PolicyContent): string {
+  const rules = normalizeRules(policy.rules);
+  return RULE_SWITCHES.filter((r) => rules[r.key])
+    .map((r) => r.title)
+    .join('\n');
+}
+
 /** The editable fields, in display order. */
 function fields(policy: PolicyContent): FieldChange[] {
   const q = policy.question;
   return [
     { key: 'instructions', title: 'Instrucciones generales', before: '', after: q.instructions.trim() },
     ...LABELS.map((l) => ({ key: `option.${l}`, title: l, before: '', after: (q.options[l]?.description ?? '').trim() })),
+    { key: 'rules', title: 'Reglas fijas', before: '', after: rulesText(policy) },
     { key: 'aux', title: 'Preguntas auxiliares', before: '', after: auxText(policy) },
     ...LABELS.map((l) => ({ key: `channels.${l}`, title: `Canales ${l}`, before: '', after: formatChannelList(policy.channel_lists[l]) })),
   ];

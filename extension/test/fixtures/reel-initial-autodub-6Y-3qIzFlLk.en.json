@@ -1,0 +1,66 @@
+{
+ "engagementPanels": [
+  {
+   "engagementPanelSectionListRenderer": {
+    "panelIdentifier": null,
+    "targetId": "engagement-panel-structured-description",
+    "content": {
+     "structuredDescriptionContentRenderer": {
+      "items": [
+       {
+        "videoTitleHeaderViewModel": {}
+       },
+       {
+        "videoDescriptionHeaderRenderer": {
+         "title": null,
+         "channel": {
+          "simpleText": "A-A-Ron shorts"
+         }
+        }
+       },
+       {
+        "expandableVideoDescriptionBodyRenderer": {}
+       },
+       {
+        "howThisWasMadeSectionViewModel": {
+         "sectionTitle": {
+          "content": "How this was made"
+         },
+         "bodyText": {
+          "content": "Audio tracks for some languages were automatically generated. Learn more",
+          "commandRuns": [
+           {
+            "startIndex": 62,
+            "length": 10,
+            "onTap": {
+             "innertubeCommand": {
+              "commandMetadata": {
+               "webCommandMetadata": {
+                "url": "//support.google.com/youtube/answer/15569972?hl=en",
+                "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                "rootVe": 83769
+               }
+              },
+              "urlEndpoint": {
+               "url": "//support.google.com/youtube/answer/15569972?hl=en",
+               "target": "TARGET_NEW_WINDOW"
+              }
+             }
+            }
+           }
+          ]
+         },
+         "bodyHeader": {
+          "content": "Auto-dubbed"
+         },
+         "attributionText": {},
+         "shouldRemoveBottomPadding": false
+        }
+       }
+      ]
+     }
+    }
+   }
+  }
+ ]
+}

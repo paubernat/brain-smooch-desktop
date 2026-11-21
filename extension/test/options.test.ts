@@ -4,6 +4,7 @@ import {
   formToPolicy,
   parseChannelList,
   policyToForm,
+  RULE_SWITCHES,
   samePolicy,
   slugifyAuxId,
   validateForm,
@@ -46,6 +47,18 @@ describe('policy form mapping', () => {
     expect(back.channel_lists).toEqual({ NO: [], LIMITADO: ['Atrioc', 'dunkey'], LIBRE: ['Fireship'] });
     expect(back.auxiliary_questions).toEqual([{ id: 'is_gaming', type: 'boolean', instructions: '¿Videojuegos?' }]);
     expect(samePolicy(POLICY, back)).toBe(true);
+  });
+
+  it('maps the fixed-rule switches, defaulting to off for older services', () => {
+    expect(policyToForm(POLICY).rules).toEqual({ block_ai_labeled: false, block_live: false });
+    const form = policyToForm({ ...POLICY, rules: { block_ai_labeled: true, block_live: false } });
+    expect(form.rules.block_ai_labeled).toBe(true);
+    form.rules.block_live = true;
+    const back = formToPolicy(form);
+    expect(back.rules).toEqual({ block_ai_labeled: true, block_live: true });
+    expect(samePolicy(POLICY, back)).toBe(false);
+    expect(RULE_SWITCHES.map((r) => r.title)).toEqual(['🚫 No a vídeos de IA (etiqueta de YouTube)', '📡 No a directos (live)']);
+    expect(RULE_SWITCHES[0]?.note).toBe('Solo detecta lo que el creador declara; el resto lo decide el modelo.');
   });
 
   it('parses channel lists from commas and lines, deduplicating', () => {

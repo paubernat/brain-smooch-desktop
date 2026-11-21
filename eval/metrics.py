@@ -30,6 +30,8 @@ class Record:
     input_tokens: int = 0
     is_short: bool = False
     has_transcript: bool = False
+    ai_labeled: bool = False  # etiqueta de YouTube «Contenido alterado o sintético»
+    is_live: bool = False  # directo en curso, programado o grabación de un directo
     title: str = ""
     cached: bool = False
     refused: bool = False
@@ -250,11 +252,19 @@ SUBSETS: dict[str, Callable[[Record], bool]] = {
     "videos": lambda r: not r.is_short,
     "with_transcript": lambda r: r.has_transcript,
     "without_transcript": lambda r: not r.has_transcript,
+    "ai_labeled": lambda r: r.ai_labeled,
+    "not_ai_labeled": lambda r: not r.ai_labeled,
+    "live": lambda r: r.is_live,
+    "not_live": lambda r: not r.is_live,
 }
 
 
 def breakdowns(records: Sequence[Record]) -> dict[str, Summary]:
-    """Desglose Shorts vs. vídeos y con/sin transcripción."""
+    """Desglose Shorts vs. vídeos, con/sin transcripción, con/sin etiqueta IA y directos.
+
+    Las reglas fijas (`block_ai_labeled`, `block_live`) no se aplican en la ablación: estos
+    desgloses miden qué hace el modelo con esos vídeos sin la regla.
+    """
     return {name: summarize([r for r in records if keep(r)]) for name, keep in SUBSETS.items()}
 
 

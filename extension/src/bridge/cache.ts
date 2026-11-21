@@ -1,5 +1,6 @@
 // Small bounded caches filled by the network interceptor (page world).
 import type { PlayerResponse } from '../extract/player-types';
+import type { AiDisclosure } from '../types';
 
 export class BoundedMap<K, V> extends Map<K, V> {
   constructor(private readonly limit: number) {
@@ -27,6 +28,8 @@ export interface CapturedTimedtext {
 export const playerCache = new BoundedMap<string, PlayerResponse>(60);
 /** Game title extracted from /youtubei/v1/next responses, by videoId. */
 export const gameCache = new BoundedMap<string, string | null>(60);
+/** Creator-disclosed AI label from /youtubei/v1/next and /youtubei/v1/reel/* responses, by videoId. */
+export const disclosureCache = new BoundedMap<string, AiDisclosure>(120);
 /** timedtext requests made by the player itself (they carry the `pot` token), by videoId. */
 export const timedtextCache = new BoundedMap<string, CapturedTimedtext[]>(30);
 

@@ -240,6 +240,8 @@ def to_record(job: Job, verdict: Verdict, cached: bool) -> Record:
         input_tokens=verdict.input_tokens,
         is_short=meta.is_short,
         has_transcript=job.video.ficha.transcript.status == "ok",
+        ai_labeled=bool(meta.ai_disclosure and meta.ai_disclosure.labeled),
+        is_live=bool(meta.live and meta.live.any_live),
         title=meta.title,
         cached=cached,
         refused=bool(verdict.aux.get("refused")),

@@ -46,6 +46,14 @@ describe('diffPolicy', () => {
     const after = edited((p) => p.auxiliary_questions.push({ id: 'is_podcast', type: 'boolean', instructions: '¿Podcast?' }));
     expect(diffPolicy(BASE, after).map((c) => c.key)).toEqual(['aux']);
   });
+
+  it('shows switched rules (missing rules = all off)', () => {
+    const after = edited((p) => (p.rules = { block_ai_labeled: true, block_live: false }));
+    expect(diffPolicy(BASE, after)).toEqual([
+      { key: 'rules', title: 'Reglas fijas', before: '', after: '🚫 No a vídeos de IA (etiqueta de YouTube)' },
+    ]);
+    expect(diffPolicy(BASE, edited((p) => (p.rules = { block_ai_labeled: false, block_live: false })))).toEqual([]);
+  });
 });
 
 describe('wordDiff', () => {

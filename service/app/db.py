@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from app.models import (
+    AiDisclosure,
     ChannelInfo,
     FichaIn,
     FichaOut,
@@ -17,6 +18,7 @@ from app.models import (
     LabelInfo,
     LabelOut,
     Levels,
+    LiveInfo,
     MetadataOut,
     PendingLabel,
     Split,
@@ -54,6 +56,12 @@ CREATE TABLE IF NOT EXISTS videos (
     l4_status TEXT NOT NULL DEFAULT 'pending',
     l2_attempts INTEGER NOT NULL DEFAULT 0,
     l4_attempts INTEGER NOT NULL DEFAULT 0,
+    ai_labeled INTEGER,
+    ai_disclosure_source TEXT,
+    ai_disclosure_text TEXT,
+    live_now INTEGER,
+    was_live INTEGER,
+    live_upcoming INTEGER,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -119,6 +127,13 @@ CREATE TABLE IF NOT EXISTS policy_feedback (
 ADDED_VIDEO_COLUMNS = {
     "l2_attempts": "INTEGER NOT NULL DEFAULT 0",
     "l4_attempts": "INTEGER NOT NULL DEFAULT 0",
+    # Etiqueta IA de YouTube y estado de directo (NULL = desconocido / ficha anterior).
+    "ai_labeled": "INTEGER",
+    "ai_disclosure_source": "TEXT",
+    "ai_disclosure_text": "TEXT",
+    "live_now": "INTEGER",
+    "was_live": "INTEGER",
+    "live_upcoming": "INTEGER",
 }
 # Reintentos de enriquecimiento fallido al arrancar (por vídeo y nivel).
 MAX_ENRICH_ATTEMPTS = 3
@@ -172,6 +187,7 @@ def upsert_video(
     l4_status: str,
 ) -> None:
     meta, transcript, storyboard = ficha.metadata, ficha.transcript, ficha.storyboard
+    disclosure, live = meta.ai_disclosure, meta.live
     now = now_iso()
     values: dict[str, Any] = {
         "video_id": ficha.video_id,
@@ -189,6 +205,12 @@ def upsert_video(
         "publish_date": meta.publish_date,
         "is_family_safe": None if meta.is_family_safe is None else int(meta.is_family_safe),
         "game": meta.game,
+        "ai_labeled": _opt_int(disclosure.labeled if disclosure else None),
+        "ai_disclosure_source": disclosure.source if disclosure else None,
+        "ai_disclosure_text": disclosure.text if disclosure else None,
+        "live_now": _opt_int(live.is_live_now if live else None),
+        "was_live": _opt_int(live.was_live if live else None),
+        "live_upcoming": _opt_int(live.is_upcoming if live else None),
         "transcript_json": _dumps([s.model_dump() for s in transcript.segments]),
         "transcript_status": transcript.status,
         "transcript_language": transcript.language,
@@ -577,7 +599,33 @@ def _metadata_from_row(row: sqlite3.Row) -> MetadataOut:
         publish_date=row["publish_date"],
         is_family_safe=None if row["is_family_safe"] is None else bool(row["is_family_safe"]),
         game=row["game"],
+        ai_disclosure=_ai_disclosure_from_row(row),
+        live=_live_from_row(row),
     )
+
+
+def _ai_disclosure_from_row(row: sqlite3.Row) -> AiDisclosure | None:
+    if row["ai_disclosure_source"] is None:
+        return None
+    return AiDisclosure(
+        labeled=bool(row["ai_labeled"]),
+        source=row["ai_disclosure_source"],
+        text=row["ai_disclosure_text"],
+    )
+
+
+def _live_from_row(row: sqlite3.Row) -> LiveInfo | None:
+    if row["live_now"] is None:
+        return None
+    return LiveInfo(
+        is_live_now=bool(row["live_now"]),
+        was_live=bool(row["was_live"]),
+        is_upcoming=bool(row["live_upcoming"]),
+    )
+
+
+def _opt_int(value: bool | None) -> int | None:
+    return None if value is None else int(value)
 
 
 def _dumps(value: Any) -> str:

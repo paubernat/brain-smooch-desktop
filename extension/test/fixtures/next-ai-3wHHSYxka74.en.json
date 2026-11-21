@@ -1,0 +1,80 @@
+{
+ "currentVideoEndpoint": {
+  "watchEndpoint": {
+   "videoId": "3wHHSYxka74"
+  }
+ },
+ "engagementPanels": [
+  {
+   "engagementPanelSectionListRenderer": {
+    "panelIdentifier": "engagement-panel-structured-description",
+    "targetId": "engagement-panel-structured-description",
+    "content": {
+     "structuredDescriptionContentRenderer": {
+      "items": [
+       {
+        "videoTitleHeaderViewModel": {}
+       },
+       {
+        "videoDescriptionHeaderRenderer": {
+         "title": null,
+         "channel": {
+          "simpleText": "Adrian Video Image"
+         }
+        }
+       },
+       {
+        "expandableVideoDescriptionBodyRenderer": {}
+       },
+       {
+        "howThisWasMadeSectionViewModel": {
+         "sectionTitle": {
+          "content": "How this was made"
+         },
+         "bodyText": {
+          "content": "Sounds or visuals were altered or fully generated. Learn more",
+          "commandRuns": [
+           {
+            "startIndex": 51,
+            "length": 10,
+            "onTap": {
+             "innertubeCommand": {
+              "commandMetadata": {
+               "webCommandMetadata": {
+                "url": "//support.google.com/youtube/answer/15447836?hl=en",
+                "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                "rootVe": 83769
+               }
+              },
+              "urlEndpoint": {
+               "url": "//support.google.com/youtube/answer/15447836?hl=en",
+               "target": "TARGET_NEW_WINDOW"
+              }
+             }
+            }
+           }
+          ]
+         },
+         "bodyHeader": {
+          "content": "Made with AI"
+         },
+         "attributionText": {},
+         "shouldRemoveBottomPadding": false
+        }
+       },
+       {
+        "videoDescriptionTranscriptSectionRenderer": {}
+       },
+       {
+        "videoDescriptionInfocardsSectionRenderer": {}
+       },
+       {
+        "itemSectionRenderer": {}
+       }
+      ]
+     }
+    }
+   }
+  }
+ ]
+}

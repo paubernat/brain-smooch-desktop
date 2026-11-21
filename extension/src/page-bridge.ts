@@ -14,10 +14,13 @@ import { BRIDGE_TAG, isToBridge, type FromBridge, type Snapshot } from './bridge
 import { trimPlayerResponse } from './extract/player-types';
 import { fetchCaptions } from './bridge/caption-fetcher';
 import { debugLog } from './bridge/debug';
+import { rememberInitialVideo, waitForDisclosure } from './bridge/disclosure-source';
 import { installInterceptor } from './bridge/interceptor';
 import { gameFor, waitForPlayer } from './bridge/player-source';
 
 const PLAYER_TIMEOUT_MS = 12000;
+/** Extra wait for the next/reel response after the player response and captions. */
+const DISCLOSURE_TIMEOUT_MS = 2000;
 
 function post(msg: FromBridge): void {
   window.postMessage(msg, window.location.origin);
@@ -28,11 +31,14 @@ async function buildSnapshot(videoId: string): Promise<Snapshot> {
   if (!found) throw new Error(`player response for ${videoId} not found`);
   debugLog('player response source:', found.source);
   const captions = await fetchCaptions(found.pr, videoId, found.player);
+  const aiDisclosure = await waitForDisclosure(videoId, DISCLOSURE_TIMEOUT_MS);
+  debugLog('ai disclosure for', videoId, aiDisclosure);
   return {
     videoId,
     source: found.source,
     playerResponse: trimPlayerResponse(found.pr),
     game: gameFor(videoId),
+    aiDisclosure,
     captions,
   };
 }
@@ -51,6 +57,7 @@ function main(): void {
   if (w[flag]) return;
   w[flag] = true;
 
+  rememberInitialVideo(location.href);
   installInterceptor();
   window.addEventListener('message', onMessage);
   // SPA navigation: YouTube fires these on document after each route change.

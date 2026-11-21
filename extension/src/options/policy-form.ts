@@ -1,6 +1,6 @@
 // Pure mapping between the policy (service JSON) and the editor form.
 import { LABELS, type Label } from '../types';
-import type { PolicyContent } from './types';
+import type { PolicyContent, PolicyRules } from './types';
 
 export interface AuxRow {
   id: string;
@@ -14,6 +14,27 @@ export interface PolicyForm {
   aux: AuxRow[];
   /** Channel names, comma or newline separated, as typed by the user. */
   channels: Record<Label, string>;
+  rules: PolicyRules;
+}
+
+export const DEFAULT_RULES: Readonly<PolicyRules> = Object.freeze({ block_ai_labeled: false, block_live: false });
+
+/** The rule switches of the profile page, in display order (UI text in Spanish). */
+export const RULE_SWITCHES: readonly { key: keyof PolicyRules; title: string; note: string }[] = [
+  {
+    key: 'block_ai_labeled',
+    title: '🚫 No a vídeos de IA (etiqueta de YouTube)',
+    note: 'Solo detecta lo que el creador declara; el resto lo decide el modelo.',
+  },
+  {
+    key: 'block_live',
+    title: '📡 No a directos (live)',
+    note: 'Bloquea directos en curso y programados; las grabaciones de directos las decide el modelo.',
+  },
+];
+
+export function normalizeRules(rules: Partial<PolicyRules> | undefined): PolicyRules {
+  return { block_ai_labeled: rules?.block_ai_labeled === true, block_live: rules?.block_live === true };
 }
 
 const AUX_ID = /^[a-z][a-z0-9_]*$/;
@@ -57,6 +78,7 @@ export function policyToForm(policy: PolicyContent): PolicyForm {
     options: byLabel((l) => policy.question.options[l]?.description.trim() ?? ''),
     aux: policy.auxiliary_questions.map((a) => ({ id: a.id, instructions: a.instructions ?? '' })),
     channels: byLabel((l) => formatChannelList(policy.channel_lists[l])),
+    rules: normalizeRules(policy.rules),
   };
 }
 
@@ -76,6 +98,7 @@ export function formToPolicy(form: PolicyForm): PolicyContent {
         instructions: a.instructions.trim() || null,
       })),
     channel_lists: byLabel((l) => parseChannelList(form.channels[l])),
+    rules: { ...form.rules },
   };
 }
 

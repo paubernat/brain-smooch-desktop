@@ -7,6 +7,14 @@ export interface AuxQuestion {
   instructions: string | null;
 }
 
+/** Fixed rules applied before the model in production (not in the ablation). */
+export interface PolicyRules {
+  /** NO to videos with YouTube's creator-disclosed "altered or synthetic content" label. */
+  block_ai_labeled: boolean;
+  /** NO to live streams in progress and scheduled ones (recordings: the model decides). */
+  block_live: boolean;
+}
+
 export interface PolicyContent {
   question: {
     id: string;
@@ -16,6 +24,8 @@ export interface PolicyContent {
   };
   auxiliary_questions: AuxQuestion[];
   channel_lists: Partial<Record<Label, string[]>>;
+  /** Absent on services older than the rules (defaults: all off). */
+  rules?: PolicyRules;
 }
 
 export interface PolicyOut {

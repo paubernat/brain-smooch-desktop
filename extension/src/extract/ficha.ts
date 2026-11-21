@@ -8,7 +8,7 @@ import { buildStoryboard } from './storyboard';
 
 export function buildFicha(snapshot: Snapshot, ref: VideoRef): FichaPayload {
   const pr = snapshot.playerResponse;
-  const metadata = extractMetadata(pr, { isShortUrl: ref.isShortUrl, game: snapshot.game });
+  const metadata = extractMetadata(pr, { isShortUrl: ref.isShortUrl, game: snapshot.game, aiDisclosure: snapshot.aiDisclosure });
   const c = snapshot.captions;
   const track: Track | null = c.track ? { baseUrl: '', languageCode: c.track.languageCode, kind: c.track.kind } : null;
   return {

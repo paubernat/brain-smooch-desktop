@@ -4,6 +4,7 @@ import { TIER_INFO, tierHeader } from '../components/policy-editor';
 import { errorNotice, notice, show } from '../components/status';
 import { button, h, withBusy } from '../dom';
 import { percent } from '../format';
+import { rulesText } from '../policy-diff';
 import { policyToForm, validateForm } from '../policy-form';
 import { go } from '../router';
 import type { PolicyContent } from '../types';
@@ -12,6 +13,7 @@ import { clearSaved } from './persist';
 
 function preview(policy: PolicyContent): HTMLElement {
   const q = policy.question;
+  const rules = rulesText(policy);
   return h(
     'div',
     { className: 'preview' },
@@ -21,6 +23,7 @@ function preview(policy: PolicyContent): HTMLElement {
       { className: 'tier-grid' },
       ...TIER_INFO.map(({ label, blurb }) => h('section', { className: `quote tier-${label}` }, tierHeader(label, blurb), h('p', { className: 'pre', text: q.options[label].description }))),
     ),
+    h('p', { className: 'pre muted', text: rules ? `Reglas fijas:\n${rules}` : 'Reglas fijas: ninguna.' }),
     policy.auxiliary_questions.length
       ? h(
           'ul',

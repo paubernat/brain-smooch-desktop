@@ -38,12 +38,23 @@ class AuxQuestion(BaseModel):
         return self.instructions or f"¿{self.id.replace('_', ' ')}?"
 
 
+class PolicyRules(BaseModel):
+    """Reglas fijas (como `channel_lists`): se aplican antes del modelo en producción y no
+    participan en la ablación (PLAN §8). Ver `app.rules.apply_rules`."""
+
+    # NO a los vídeos con la etiqueta de YouTube «Contenido alterado o sintético».
+    block_ai_labeled: bool = False
+    # NO a los directos en curso y programados (las grabaciones las decide el modelo).
+    block_live: bool = False
+
+
 class PolicyContent(BaseModel):
     """Parte editable de la política (todo menos `version` y el hash)."""
 
     question: PolicyQuestion
     auxiliary_questions: list[AuxQuestion] = Field(default_factory=list)
     channel_lists: dict[Label, list[str]] = Field(default_factory=dict)
+    rules: PolicyRules = Field(default_factory=PolicyRules)
 
 
 class Policy(PolicyContent):

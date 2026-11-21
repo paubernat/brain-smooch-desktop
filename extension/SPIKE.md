@@ -54,7 +54,49 @@ Para cada fila: abrir una sprite URL de la consola en una pestaña (debe verse l
   (comprobado fuera del navegador para el vídeo largo y el Short). Por eso existen los pasos
   `captured` / `pot-reuse` / `player-trigger`. Un cuerpo vacío se registra como `blocked`.
 
+## Etiqueta IA de YouTube y directos (comprobado el 2026-11-21 con `curl`)
+
+**Etiqueta IA** («Contenido alterado o sintético», declarada por el creador). Muestra: ~30 vídeos
+de búsquedas tipo «suno ai song», «ai generated music», «música generada con IA», más 12 Shorts.
+
+- **No está en el player response** (`ytInitialPlayerResponse` no la contiene). Está en
+  `ytInitialData` (`/watch` y `/shorts`) y en las respuestas de `/youtubei/v1/next` y
+  `/youtubei/v1/reel/reel_item_watch`, en el panel de descripción:
+  `engagementPanels[].engagementPanelSectionListRenderer.content.structuredDescriptionContentRenderer.items[].howThisWasMadeSectionViewModel`
+  con `sectionTitle` «How this was made» / «Cómo se ha hecho», `bodyHeader` «Made with AI» /
+  «Creado con IA» y `bodyText` «Sounds or visuals were altered or fully generated» / «Los sonidos
+  o las imágenes están alteradas o se han generado completamente». El enlace «Más información»
+  apunta a `support.google.com/youtube/answer/15447836`.
+- **La misma sección se usa para el doblaje automático** («Auto-dubbed» / «Doblado
+  automáticamente», artículo `15569972`): no es etiqueta IA. En la muestra, ~1 de cada 3
+  secciones era de doblaje. El parser usa el id del artículo (independiente del idioma) y, si no
+  hay enlace conocido, el texto en inglés/español.
+- **Ids de vídeo:** `/next` → `currentVideoEndpoint.watchEndpoint.videoId`; `reel_item_watch` →
+  `playerResponse.videoDetails.videoId` (o el `playerRequest.videoId` del cuerpo de la petición);
+  el `ytInitialData` de `/shorts` **no lleva su videoId** (se usa el de la URL con la que se cargó
+  la pestaña). `ytInitialReelWatchSequenceResponse` (cadena JSON) y `reel_watch_sequence` traen
+  **los Shorts siguientes** precargados en `entries[].command.reelWatchEndpoint` (`videoId` +
+  `unserializedPrefetchData.reelItemWatchResponse`): en un Short con doblaje aparecía la etiqueta
+  IA del Short siguiente, así que nunca se asocia por proximidad.
+- Sin panel de descripción no se sabe nada (`source: "unknown"`); con panel y sin sección IA es
+  un «no etiquetado» confirmado. Ejemplo real: `2BthJJ_zJgU` («AI Pop Song Created with Suno
+  AI») **no** lleva etiqueta: la regla solo ve lo que el creador declara.
+- **No observado:** el aviso más visible sobre el reproductor para temas sensibles. Parser
+  defensivo: un enlace al artículo `15447836` bajo `playerOverlays` / `overlay` cuenta como
+  etiqueta. Tampoco se ha implementado la lectura del DOM (`source: "dom"` queda reservado).
+
+**Directos** (player response): en directo `videoDetails.isLive = true` y
+`liveBroadcastDetails.isLiveNow = true` (`rFZHOHl-L8A`); programado `isUpcoming = true`,
+`playabilityStatus = LIVE_STREAM_OFFLINE` (`eKhoBmNB6Tg`); grabación de un directo terminado
+`isLiveContent = true`, `isLiveNow = false`, `endTimestamp` presente (`jfKfPfyJRdk`).
+
 ## Qué NO se sabe aún (a validar en el navegador)
+
+- Si en navegación SPA (scroll de Shorts) la respuesta de `reel_item_watch` llega antes de que
+  se tome el snapshot; el bridge espera hasta 2 s a la etiqueta IA después de los subtítulos y,
+  si no llega, manda `source: "unknown"`. Con debug activo se registra `ai disclosure`.
+- Si `reel_item_watch` en el navegador incluye `playerResponse` (en `curl` sí); si no, el
+  videoId sale del cuerpo de la petición (solo si es una cadena en `fetch`/XHR).
 
 - Si el `fetch` directo desde el contexto de la página (con cookies) también devuelve vacío.
   Probablemente sí.
@@ -78,6 +120,16 @@ Para cada fila: abrir una sprite URL de la consola en una pestaña (debe verse l
 | `player-short-ib6nIB-fbNE.json` | **Real** (HTML de `/shorts/ib6nIB-fbNE`, recortado) |
 | `player-short-oyxs-4jk0Tg.json` | **Real** (HTML de `/shorts/oyxs-4jk0Tg`, recortado) |
 | `player-watch-aircAruvnKk.json` | **Real** (HTML de `/watch?v=aircAruvnKk`, recortado; 12 capítulos, 31 pistas) |
+| `next-ai-3wHHSYxka74.en.json` | **Real** (`ytInitialData` de `/watch`, recortado): «Made with AI» |
+| `next-ai-3wHHSYxka74.es.json` | **Real** (`/youtubei/v1/next`, `hl=es`, recortado): «Creado con IA» |
+| `next-autodub-402VxfR7fRQ.en.json` | **Real** (`ytInitialData`): «Auto-dubbed», no es etiqueta IA |
+| `next-none-2BthJJ_zJgU.es.json` | **Real** (`/youtubei/v1/next`): canción de Suno sin etiqueta |
+| `reel-item-ai-cZ44YIQXShY.es.json` | **Real** (`/youtubei/v1/reel/reel_item_watch`, `hl=es`): Short con etiqueta |
+| `reel-initial-autodub-6Y-3qIzFlLk.en.json` | **Real** (`ytInitialData` de `/shorts`, sin videoId) |
+| `reel-sequence-6Y-3qIzFlLk.en.json` | **Real** (`ytInitialReelWatchSequenceResponse`): Short siguiente con etiqueta |
+| `player-live-rFZHOHl-L8A.json` | **Real** (directo 24/7 en curso, recortado) |
+| `player-upcoming-eKhoBmNB6Tg.json` | **Real** (directo programado) |
+| `player-pastlive-jfKfPfyJRdk.json` | **Real** (directo 24/7 terminado: grabación) |
 | `captions-asr.json3.json` | **Sintético** (formato json3, estilo ASR) — sustituir por una captura real |
 | `captions-manual.json3.json` | **Sintético** (formato json3, estilo manual) — sustituir por una captura real |
 

@@ -1,0 +1,122 @@
+{
+ "currentVideoEndpoint": {
+  "watchEndpoint": {
+   "videoId": "2BthJJ_zJgU"
+  }
+ },
+ "engagementPanels": [
+  {
+   "engagementPanelSectionListRenderer": {
+    "panelIdentifier": "engagement-panel-structured-description",
+    "targetId": "engagement-panel-structured-description",
+    "content": {
+     "structuredDescriptionContentRenderer": {
+      "items": [
+       {
+        "videoDescriptionHeaderRenderer": {
+         "title": {
+          "runs": [
+           {
+            "text": "Let Life Be – AI Pop Song Created with Suno AI | Rayla Young  "
+           },
+           {
+            "text": "#aimusic",
+            "navigationEndpoint": {
+             "clickTrackingParams": "CCcQ1soDGEEiEwj6j6OI4ZmYAxXh5o4JHcVOCLzKAQSKYnAK",
+             "commandMetadata": {
+              "webCommandMetadata": {
+               "url": "/hashtag/aimusic",
+               "webPageType": "WEB_PAGE_TYPE_BROWSE",
+               "rootVe": 6827,
+               "apiUrl": "/youtubei/v1/browse"
+              }
+             },
+             "browseEndpoint": {
+              "browseId": "FEhashtag",
+              "params": "6gULCgdhaW11c2ljGAE%3D"
+             }
+            },
+            "loggingDirectives": {
+             "trackingParams": "CCcQ1soDGEEiEwj6j6OI4ZmYAxXh5o4JHcVOCLw=",
+             "visibility": {
+              "types": "12"
+             }
+            }
+           },
+           {
+            "text": " "
+           },
+           {
+            "text": "#sunoai",
+            "navigationEndpoint": {
+             "clickTrackingParams": "CCYQ1soDGEMiEwj6j6OI4ZmYAxXh5o4JHcVOCLzKAQSKYnAK",
+             "commandMetadata": {
+              "webCommandMetadata": {
+               "url": "/hashtag/sunoai",
+               "webPageType": "WEB_PAGE_TYPE_BROWSE",
+               "rootVe": 6827,
+               "apiUrl": "/youtubei/v1/browse"
+              }
+             },
+             "browseEndpoint": {
+              "browseId": "FEhashtag",
+              "params": "6gUKCgZzdW5vYWkYAQ%3D%3D"
+             }
+            },
+            "loggingDirectives": {
+             "trackingParams": "CCYQ1soDGEMiEwj6j6OI4ZmYAxXh5o4JHcVOCLw=",
+             "visibility": {
+              "types": "12"
+             }
+            }
+           },
+           {
+            "text": "  "
+           },
+           {
+            "text": "#aiartist",
+            "navigationEndpoint": {
+             "clickTrackingParams": "CCUQ1soDGEUiEwj6j6OI4ZmYAxXh5o4JHcVOCLzKAQSKYnAK",
+             "commandMetadata": {
+              "webCommandMetadata": {
+               "url": "/hashtag/aiartist",
+               "webPageType": "WEB_PAGE_TYPE_BROWSE",
+               "rootVe": 6827,
+               "apiUrl": "/youtubei/v1/browse"
+              }
+             },
+             "browseEndpoint": {
+              "browseId": "FEhashtag",
+              "params": "6gUMCghhaWFydGlzdBgB"
+             }
+            },
+            "loggingDirectives": {
+             "trackingParams": "CCUQ1soDGEUiEwj6j6OI4ZmYAxXh5o4JHcVOCLw=",
+             "visibility": {
+              "types": "12"
+             }
+            }
+           }
+          ]
+         },
+         "channel": {
+          "simpleText": "Ulan Sonic"
+         }
+        }
+       },
+       {
+        "expandableVideoDescriptionBodyRenderer": {}
+       },
+       {
+        "videoDescriptionTranscriptSectionRenderer": {}
+       },
+       {
+        "videoDescriptionInfocardsSectionRenderer": {}
+       }
+      ]
+     }
+    }
+   }
+  }
+ ]
+}

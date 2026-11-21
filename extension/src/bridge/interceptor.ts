@@ -1,9 +1,10 @@
 // Wraps window.fetch and XMLHttpRequest (page world) to observe YouTube's own
 // API responses. Nothing is modified: responses are cloned and read on the side.
+import { aiDisclosuresFromResponse, requestVideoId } from '../extract/ai-disclosure';
 import { timedtextKey } from '../extract/captions';
 import { extractGame } from '../extract/metadata';
 import type { PlayerResponse } from '../extract/player-types';
-import { addTimedtext, gameCache, playerCache } from './cache';
+import { addTimedtext, disclosureCache, gameCache, playerCache } from './cache';
 import { debugLog } from './debug';
 
 /** Unwrapped fetch, used by the bridge's own requests. */
@@ -41,7 +42,14 @@ function collectPlayerResponses(node: unknown, out: PlayerResponse[], depth = 0)
   for (const value of Object.values(obj)) collectPlayerResponses(value, out, depth + 1);
 }
 
-export function handleResponse(kind: Kind, url: string, body: string): void {
+function cacheDisclosures(json: unknown, kind: 'next' | 'reel', requestBody: string | null): void {
+  for (const [vid, disclosure] of aiDisclosuresFromResponse(json, kind, requestVideoId(requestBody))) {
+    disclosureCache.set(vid, disclosure);
+    debugLog('ai disclosure', kind, vid, disclosure);
+  }
+}
+
+export function handleResponse(kind: Kind, url: string, body: string, requestBody: string | null = null): void {
   if (!body) return;
   if (kind === 'timedtext') {
     const key = timedtextKey(url);
@@ -60,8 +68,10 @@ export function handleResponse(kind: Kind, url: string, body: string): void {
   if (kind === 'next') {
     const vid = (json as { currentVideoEndpoint?: { watchEndpoint?: { videoId?: string } } }).currentVideoEndpoint?.watchEndpoint?.videoId;
     if (vid) gameCache.set(vid, extractGame(json));
+    cacheDisclosures(json, 'next', requestBody);
     return;
   }
+  if (kind === 'reel') cacheDisclosures(json, 'reel', requestBody);
   const found: PlayerResponse[] = [];
   collectPlayerResponses(json, found);
   for (const pr of found) {
@@ -80,10 +90,11 @@ export function installInterceptor(): void {
       const url = urlOf(input);
       const kind = classify(url);
       if (kind && response.ok) {
+        const requestBody = typeof init?.body === 'string' ? init.body : null;
         response
           .clone()
           .text()
-          .then((body) => handleResponse(kind, url, body))
+          .then((body) => handleResponse(kind, url, body, requestBody))
           .catch(() => undefined);
       }
     } catch {
@@ -111,6 +122,7 @@ export function installInterceptor(): void {
     const url = xhrUrls.get(this);
     const kind = url ? classify(url) : null;
     if (url && kind) {
+      const requestBody = typeof body === 'string' ? body : null;
       this.addEventListener('load', () => {
         try {
           if (this.status < 200 || this.status >= 300) return;
@@ -120,7 +132,7 @@ export function installInterceptor(): void {
               : this.responseType === 'json'
                 ? JSON.stringify(this.response)
                 : '';
-          handleResponse(kind, this.responseURL || url, text);
+          handleResponse(kind, this.responseURL || url, text, requestBody);
         } catch {
           /* ignore */
         }

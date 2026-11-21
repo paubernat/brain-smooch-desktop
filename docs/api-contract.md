@@ -20,7 +20,9 @@ Servicio local en `http://127.0.0.1:8765`. JSON en snake_case.
     "channel_name": "Jeff Schneider",
     "publish_date": "2025-01-01",
     "is_family_safe": true,
-    "game": null
+    "game": null,
+    "ai_disclosure": {"labeled": true, "source": "next", "text": "Made with AI: Sounds or visuals were altered or fully generated."},
+    "live": {"is_live_now": false, "was_live": false, "is_upcoming": false}
   },
   "transcript": {
     "status": "ok",
@@ -42,6 +44,10 @@ Servicio local en `http://127.0.0.1:8765`. JSON en snake_case.
 - `transcript.status` ∈ `ok | none | blocked`. Si no es `ok`, `segments` = `[]`.
 - `storyboard` puede ser `null` si el vídeo no tiene spec.
 - `chapters` = `[]` si no hay.
+- `metadata.ai_disclosure`: etiqueta de YouTube «Contenido alterado o sintético» (sección «Cómo se ha hecho»; solo lo que declara el creador, nunca el doblaje automático). `source` ∈ `next | reel | dom | unknown`: dónde se buscó (`next` = `/youtubei/v1/next` o `ytInitialData` de `/watch`; `reel` = respuestas de Shorts). Con `unknown` no se encontró la respuesta y `labeled` no significa nada. `text` (opcional): cabecera y texto de la sección. Ver `extension/SPIKE.md`.
+- `metadata.live`: `is_live_now` (directo en curso), `is_upcoming` (programado), `was_live` (grabación de un directo terminado). Del player response.
+- Ambos son opcionales (clientes antiguos): se guardan como `NULL` y `GET` los devuelve como `null`.
+- Jueces (`FichaView`, nivel L1): `video.ai_labeled` (`true`/`false`; se omite si `source` es `unknown`) y `video.live` (solo si algún indicador es `true`).
 
 Respuesta: `200` con la ficha (igual que `GET /fichas/{video_id}`).
 
@@ -82,9 +88,12 @@ Los usa la página de opciones de la extensión («Configura tu perfil»). La po
     "options": {"NO": {"description": "..."}, "LIMITADO": {"description": "..."}, "LIBRE": {"description": "..."}}
   },
   "auxiliary_questions": [{"id": "is_gaming", "type": "boolean", "instructions": "¿...?"}],
-  "channel_lists": {"NO": [], "LIMITADO": ["Atrioc"], "LIBRE": ["Fireship"]}
+  "channel_lists": {"NO": [], "LIMITADO": ["Atrioc"], "LIBRE": ["Fireship"]},
+  "rules": {"block_ai_labeled": false, "block_live": false}
 }
 ```
+
+`rules` (por defecto todo `false`; opcional al enviar) son reglas fijas como `channel_lists`: dan el veredicto antes del modelo en producción (`app.rules.apply_rules`) y **no** se aplican en la ablación ni en `/policy/evaluate`. `block_ai_labeled`: NO si `metadata.ai_disclosure.labeled`. `block_live`: NO si `live.is_live_now` o `live.is_upcoming` (las grabaciones de directos las decide el modelo). Orden: lista NO de canales → `block_live` → `block_ai_labeled` → listas LIMITADO/LIBRE (un interruptor «No a…» gana a un canal en LIBRE). Claude (draft/refine/refresh/edit) nunca cambia `rules`: se conservan de la política de partida.
 
 ### `GET /policy`
 `{"version": 3, "policy_version": "3-424f6405", "content": PolicyContent, "yaml": "texto del fichero"}`

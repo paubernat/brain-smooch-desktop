@@ -1,7 +1,7 @@
 // window.postMessage protocol between content.ts (isolated world) and
 // page-bridge.ts (page / MAIN world).
 import type { PlayerResponse } from './extract/player-types';
-import type { TrackKind, TranscriptStatus } from './types';
+import type { AiDisclosure, TrackKind, TranscriptStatus } from './types';
 
 export const BRIDGE_TAG = 'brain-smooch-desktop';
 
@@ -29,6 +29,8 @@ export interface Snapshot {
   playerResponse: PlayerResponse;
   /** Game title (gaming videos), from `/youtubei/v1/next` or ytInitialData; best effort. */
   game: string | null;
+  /** Creator-disclosed AI label, from next/reel responses or ytInitialData. */
+  aiDisclosure: AiDisclosure;
   captions: CaptionResult;
 }
 

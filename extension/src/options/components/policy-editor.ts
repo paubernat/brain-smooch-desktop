@@ -1,8 +1,9 @@
-// Form for a policy: instructions, the three option descriptions, auxiliary
-// questions and (optionally) channel lists. Shared by the manual mode and the wizard.
+// Form for a policy: instructions, the three option descriptions, fixed-rule
+// switches, auxiliary questions and (optionally) channel lists. Shared by the
+// manual mode and the wizard.
 import type { Label } from '../../types';
 import { button, field, h, textarea } from '../dom';
-import { formToPolicy, policyToForm, slugifyAuxId, type AuxRow, type PolicyForm } from '../policy-form';
+import { formToPolicy, policyToForm, RULE_SWITCHES, slugifyAuxId, type AuxRow, type PolicyForm } from '../policy-form';
 import type { PolicyContent } from '../types';
 
 export const TIER_INFO: readonly { label: Label; blurb: string }[] = [
@@ -80,8 +81,32 @@ export class PolicyEditor {
         this.renderAux();
       }, 'ghost'),
     );
-    this.element.replaceChildren(field('Instrucciones generales', instructions, 'Lo primero que lee el juez: 2–4 frases.'), tiers, aux);
+    this.element.replaceChildren(field('Instrucciones generales', instructions, 'Lo primero que lee el juez: 2–4 frases.'), tiers, this.renderRules(), aux);
     if (this.options.showChannels) this.element.append(this.renderChannels());
+  }
+
+  private renderRules(): HTMLElement {
+    const switches = RULE_SWITCHES.map(({ key, title, note }) => {
+      const input = h('input', { attrs: { type: 'checkbox', role: 'switch' } });
+      input.checked = this.form.rules[key];
+      input.addEventListener('change', () => {
+        this.form.rules[key] = input.checked;
+        this.changed();
+      });
+      return h(
+        'label',
+        { className: 'rule-switch' },
+        input,
+        h('span', { className: 'rule-text' }, h('strong', { text: title }), h('span', { className: 'hint', text: note })),
+      );
+    });
+    return h(
+      'section',
+      { className: 'subsection rules' },
+      h('h3', { text: 'Reglas fijas' }),
+      h('p', { className: 'muted', text: 'Dan NO directamente, antes de preguntar al modelo (no participan en la ablación).' }),
+      ...switches,
+    );
   }
 
   private renderAux(): void {

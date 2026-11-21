@@ -38,6 +38,8 @@ export interface PlayerResponse {
     shortDescription?: string;
     author?: string;
     isLiveContent?: boolean;
+    isLive?: boolean;
+    isUpcoming?: boolean;
     thumbnail?: { thumbnails?: Thumbnail[] };
   };
   microformat?: {
@@ -50,6 +52,11 @@ export interface PlayerResponse {
       isShortsEligible?: boolean;
       ownerChannelName?: string;
       externalChannelId?: string;
+      liveBroadcastDetails?: {
+        isLiveNow?: boolean;
+        startTimestamp?: string;
+        endTimestamp?: string;
+      };
     };
   };
   captions?: {

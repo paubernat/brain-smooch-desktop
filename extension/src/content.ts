@@ -10,7 +10,7 @@ import { onBridgeNavigation, requestSnapshot } from './bridge-client';
 import { debugLog, dumpSpike, initDebug } from './debug';
 import { buildFicha } from './extract/ficha';
 import type { FichaPayload, FichaResponse, Label } from './types';
-import { LabelPanel } from './ui/label-panel';
+import { LabelPanel, signalBadges } from './ui/label-panel';
 import { parseVideoUrl, type VideoRef } from './url';
 
 const URL_POLL_MS = 500; // Shorts swipes may only change the URL
@@ -72,6 +72,7 @@ async function processVideo(ref: VideoRef): Promise<void> {
     lastFicha = ficha;
     dumpSpike(snapshot, ficha);
     panel.setVideo(ref.videoId, ficha.metadata.title);
+    panel.setSignals(signalBadges(ficha.metadata));
     panel.setLevels({ L1: 'ok', L3: ficha.transcript.status, L4: ficha.storyboard ? 'pending' : 'none' });
 
     panel.setStatus('guardando ficha…');

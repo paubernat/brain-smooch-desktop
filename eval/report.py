@@ -48,6 +48,7 @@ class ReportData:
     meta: list[str]
     summary: Table
     breakdown: Table
+    breakdown_signals: Table
     best: Summary | None
     confusion: Table | None
     reliability: Table | None
@@ -109,9 +110,23 @@ def summary_table(summaries: Sequence[Summary]) -> Table:
     return Table(headers, rows)
 
 
-def breakdown_table(groups: dict[tuple[str, str], list[Record]], order: Sequence[Summary]) -> Table:
-    subsets = ["shorts", "videos", "with_transcript", "without_transcript"]
-    headers = ["modelo", "config"] + [f"{s} (n · acierto · falso LIBRE)" for s in subsets]
+FORMAT_SUBSETS = ("shorts", "videos", "with_transcript", "without_transcript")
+SIGNAL_SUBSETS = ("ai_labeled", "not_ai_labeled", "live", "not_live")
+SUBSET_TITLES = {
+    "ai_labeled": "con etiqueta IA",
+    "not_ai_labeled": "sin etiqueta IA",
+    "live": "directos",
+    "not_live": "no directos",
+}
+
+
+def breakdown_table(
+    groups: dict[tuple[str, str], list[Record]],
+    order: Sequence[Summary],
+    subsets: Sequence[str] = FORMAT_SUBSETS,
+) -> Table:
+    titles = [SUBSET_TITLES.get(s, s) for s in subsets]
+    headers = ["modelo", "config"] + [f"{t} (n · acierto · falso LIBRE)" for t in titles]
     rows = []
     for summary in order:
         parts = breakdowns(groups[(summary.model_key, summary.config)])
@@ -241,6 +256,7 @@ def build_report(
         ],
         summary=summary_table(summaries),
         breakdown=breakdown_table(groups, summaries),
+        breakdown_signals=breakdown_table(groups, summaries, SIGNAL_SUBSETS),
         best=best,
         confusion=confusion_table(best) if best else None,
         reliability=reliability_table(best) if best else None,
@@ -285,6 +301,10 @@ def _sections(data: ReportData) -> list[tuple[str, Table | None]]:
     return [
         ("Resumen", data.summary),
         ("Desglose: Shorts/vídeos y con/sin transcripción", data.breakdown),
+        (
+            "Desglose: con/sin etiqueta IA de YouTube y directos (sin reglas fijas)",
+            data.breakdown_signals,
+        ),
         (f"Matriz de confusión del mejor par ({best_name})", data.confusion),
         (f"Calibración del mejor par ({best_name})", data.reliability),
         (f"Cobertura con umbral ({best_name})", data.coverage),

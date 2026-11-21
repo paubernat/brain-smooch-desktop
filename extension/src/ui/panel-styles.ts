@@ -29,7 +29,13 @@ export const PANEL_CSS = `
 .panel:not(.collapsed) .current { display: none; } /* the selected button shows it */
 .body { padding: 0 8px 8px; }
 .panel.collapsed .body { display: none; }
-.title { color: #d1d5db; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 6px; }
+.title-row { display: flex; align-items: center; gap: 4px; min-width: 0; margin-bottom: 6px; }
+.title { flex: 1 1 auto; min-width: 0; color: #d1d5db; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.signals { display: flex; gap: 3px; flex: none; }
+.signals:empty { display: none; }
+.signal { padding: 0 4px; border-radius: 4px; font-size: 10px; font-weight: 700; letter-spacing: 0.03em; }
+.signal.ai { background: #4c1d95; color: #ddd6fe; }
+.signal.live { background: #991b1b; color: #fee2e2; }
 .buttons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin-bottom: 6px; }
 button {
   font: inherit; color: #f9fafb; cursor: pointer; margin: 0;

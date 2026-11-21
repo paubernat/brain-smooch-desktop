@@ -44,6 +44,46 @@ class Chapter(BaseModel):
     title: str
 
 
+AiDisclosureSource = Literal["next", "reel", "dom", "unknown"]
+
+
+class AiDisclosure(BaseModel):
+    """Etiqueta de YouTube «Contenido alterado o sintético» (sección «Cómo se ha hecho»).
+
+    Solo refleja lo que declara el creador. `source` dice dónde se buscó: `next` (respuesta
+    de `/youtubei/v1/next` o `ytInitialData` de /watch), `reel` (respuestas de Shorts), `dom`
+    o `unknown` (no se encontró la respuesta: `labeled` no significa nada).
+    """
+
+    labeled: bool = False
+    source: AiDisclosureSource = "unknown"
+    text: str | None = None
+
+    @property
+    def known_labeled(self) -> bool | None:
+        """`True`/`False` si se pudo comprobar; `None` si no se sabe."""
+        if self.labeled:
+            return True
+        return None if self.source == "unknown" else False
+
+
+class LiveInfo(BaseModel):
+    """Estado de emisión en directo (player response)."""
+
+    is_live_now: bool = False
+    was_live: bool = False  # grabación de un directo ya terminado
+    is_upcoming: bool = False  # directo o estreno programado
+
+    @property
+    def any_live(self) -> bool:
+        return self.is_live_now or self.was_live or self.is_upcoming
+
+    @property
+    def live_or_upcoming(self) -> bool:
+        """Lo que bloquea la regla `block_live` (las grabaciones las decide el modelo)."""
+        return self.is_live_now or self.is_upcoming
+
+
 class MetadataIn(BaseModel):
     title: str
     description_raw: str = ""
@@ -57,6 +97,8 @@ class MetadataIn(BaseModel):
     publish_date: str | None = None
     is_family_safe: bool | None = None
     game: str | None = None
+    ai_disclosure: AiDisclosure | None = None  # None: cliente antiguo / ficha anterior
+    live: LiveInfo | None = None
 
 
 class TranscriptSegment(BaseModel):
@@ -205,6 +247,10 @@ class VideoSection(BaseModel):
     keywords: list[str] = Field(default_factory=list)
     description: str = ""
     chapters: list[Chapter] = Field(default_factory=list)
+    # Etiqueta IA declarada por el creador; None (se omite) si no se pudo comprobar.
+    ai_labeled: bool | None = None
+    # Solo si el vídeo es o fue un directo (o está programado); None se omite.
+    live: LiveInfo | None = None
 
 
 class ChannelSection(BaseModel):
@@ -290,4 +336,6 @@ def _video_section(ficha: FichaOut) -> VideoSection:
         keywords=meta.keywords,
         description=meta.description_clean,
         chapters=meta.chapters,
+        ai_labeled=meta.ai_disclosure.known_labeled if meta.ai_disclosure else None,
+        live=meta.live if meta.live and meta.live.any_live else None,
     )

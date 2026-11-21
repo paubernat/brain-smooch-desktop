@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { LABELS, type Label } from '../src/types';
-import { LabelPanel, levelChip, type PanelHandlers } from '../src/ui/label-panel';
+import { LabelPanel, levelChip, signalBadges, type PanelHandlers } from '../src/ui/label-panel';
 import { PANEL_CSS } from '../src/ui/panel-styles';
 import { shortcutLabel, type ShortcutEvent } from '../src/ui/shortcuts';
 import { fakeEvent, installFakeDom, type FakeDom, type FakeElement } from './fake-dom';
@@ -91,6 +91,39 @@ describe('LabelPanel', () => {
     panel.setPending({ pending: 20, threshold: 20 });
     expect(hint().classList.contains('hidden')).toBe(false);
     expect(hint().textContent).toContain('Refresca tu política');
+  });
+});
+
+describe('signal badges', () => {
+  const notLive = { is_live_now: false, was_live: false, is_upcoming: false };
+
+  it('shows IA only for a creator-disclosed label', () => {
+    expect(signalBadges({ ai_disclosure: { labeled: true, source: 'next', text: 'Made with AI' }, live: notLive })).toEqual([
+      { kind: 'ai', text: 'IA', title: 'Etiqueta de YouTube (declarada por el creador): Made with AI' },
+    ]);
+    expect(signalBadges({ ai_disclosure: { labeled: false, source: 'next' }, live: notLive })).toEqual([]);
+  });
+
+  it('shows LIVE for live now and scheduled, not for recordings', () => {
+    const none = { labeled: false, source: 'unknown' } as const;
+    expect(signalBadges({ ai_disclosure: none, live: { ...notLive, is_live_now: true } }).map((b) => b.text)).toEqual(['LIVE']);
+    expect(signalBadges({ ai_disclosure: none, live: { ...notLive, is_upcoming: true } })[0]?.title).toContain('programado');
+    expect(signalBadges({ ai_disclosure: none, live: { ...notLive, was_live: true } })).toEqual([]);
+  });
+
+  it('renders the badges and clears them on video change', () => {
+    const dom = installFakeDom();
+    const panel = new LabelPanel({ onLabel: () => undefined, onRetry: () => undefined, onOpenSettings: () => undefined, onOpenCalibration: () => undefined });
+    panel.mount();
+    panel.setVideo('abcdefghijk', 'Un vídeo');
+    const signals = () => dom.documentElement.findAll((el) => el.classList.contains('signal')).map((el) => el.textContent);
+    panel.setSignals([
+      { kind: 'ai', text: 'IA', title: '' },
+      { kind: 'live', text: 'LIVE', title: '' },
+    ]);
+    expect(signals()).toEqual(['IA', 'LIVE']);
+    panel.setVideo('bbbbbbbbbbb', 'Otro');
+    expect(signals()).toEqual([]);
   });
 });
 

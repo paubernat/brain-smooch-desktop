@@ -130,8 +130,9 @@ def _changelog(raw: Any) -> list[str]:
 
 
 def content_from_output(data: dict[str, Any], base: PolicyContent) -> PolicyContent:
-    """Salida estructurada → `PolicyContent`. El id de la pregunta sale de `base`, y también las
-    listas de canales salvo que la salida traiga las suyas (recalibración y edición)."""
+    """Salida estructurada → `PolicyContent`. El id de la pregunta y las reglas fijas (`rules`)
+    salen de `base`, y también las listas de canales salvo que la salida traiga las suyas
+    (recalibración y edición)."""
     instructions = str(data.get("instructions") or "").strip()
     options_raw = data.get("options") or {}
     options = {}
@@ -146,6 +147,7 @@ def content_from_output(data: dict[str, Any], base: PolicyContent) -> PolicyCont
         question=PolicyQuestion(id=base.question.id, instructions=instructions, options=options),
         auxiliary_questions=_aux_questions(data.get("auxiliary_questions") or []),
         channel_lists=_channel_lists(data.get("channel_lists"), base),
+        rules=base.rules.model_copy(),
     )
 
 

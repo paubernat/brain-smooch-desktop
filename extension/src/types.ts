@@ -11,6 +11,28 @@ export interface Chapter {
   title: string;
 }
 
+/** Where the creator-disclosed AI label was looked for (see extract/ai-disclosure.ts). */
+export type AiDisclosureSource = 'next' | 'reel' | 'dom' | 'unknown';
+
+/**
+ * YouTube's "Altered or synthetic content" label ("How this was made" section).
+ * `source: 'unknown'` means no response was found: `labeled` says nothing then.
+ */
+export interface AiDisclosure {
+  labeled: boolean;
+  source: AiDisclosureSource;
+  text?: string;
+}
+
+/** Live-stream state from the player response (see extract/live.ts). */
+export interface LiveInfo {
+  is_live_now: boolean;
+  /** Recording of a finished live stream. */
+  was_live: boolean;
+  /** Scheduled live stream or premiere. */
+  is_upcoming: boolean;
+}
+
 export interface Metadata {
   title: string;
   description_raw: string;
@@ -24,6 +46,8 @@ export interface Metadata {
   publish_date: string | null;
   is_family_safe: boolean | null;
   game: string | null;
+  ai_disclosure: AiDisclosure;
+  live: LiveInfo;
 }
 
 export interface TranscriptSegment {

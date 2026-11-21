@@ -1,5 +1,7 @@
 // L1: metadata from the player response. Pure functions, no DOM / network.
-import type { Chapter, Metadata } from '../types';
+import type { AiDisclosure, Chapter, Metadata } from '../types';
+import { UNKNOWN_DISCLOSURE } from './ai-disclosure';
+import { extractLive } from './live';
 import type { PlayerResponse } from './player-types';
 
 /** Upper bound for Shorts duration (YouTube allows Shorts up to 3 minutes since Oct 2024). */
@@ -10,6 +12,8 @@ export interface MetadataContext {
   isShortUrl: boolean;
   /** Associated game (gaming videos), best effort, see extractGame(). */
   game?: string | null;
+  /** Creator-disclosed AI label from the next/reel data (see ai-disclosure.ts). */
+  aiDisclosure?: AiDisclosure | null;
 }
 
 export function extractMetadata(pr: PlayerResponse, ctx: MetadataContext): Metadata {
@@ -31,6 +35,8 @@ export function extractMetadata(pr: PlayerResponse, ctx: MetadataContext): Metad
     publish_date: toDate(mf.publishDate ?? mf.uploadDate),
     is_family_safe: typeof mf.isFamilySafe === 'boolean' ? mf.isFamilySafe : null,
     game: ctx.game ?? null,
+    ai_disclosure: { ...(ctx.aiDisclosure ?? UNKNOWN_DISCLOSURE) },
+    live: extractLive(pr),
   };
 }
 

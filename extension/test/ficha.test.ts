@@ -22,6 +22,7 @@ describe('buildFicha -> POST /fichas payload', () => {
       source: 'shorts_player',
       playerResponse: SHORT_CHORDS,
       game: null,
+      aiDisclosure: { labeled: true, source: 'reel', text: 'Made with AI' },
       captions: { status: 'ok', track: { languageCode: 'en', kind: 'asr' }, json3: JSON3_ASR, via: 'captured', attempts: [] },
     };
     const f = buildFicha(snapshot, { videoId: 'ib6nIB-fbNE', isShortUrl: true });
@@ -31,6 +32,8 @@ describe('buildFicha -> POST /fichas payload', () => {
     expect(f.transcript.status).toBe('ok');
     expect(f.transcript.segments.length).toBeGreaterThan(0);
     expect(f.storyboard?.sprite_urls.length).toBe(7);
+    expect(f.metadata.ai_disclosure).toEqual({ labeled: true, source: 'reel', text: 'Made with AI' });
+    expect(f.metadata.live).toEqual({ is_live_now: false, was_live: false, is_upcoming: false });
   });
 
   it('long video with blocked captions', () => {
@@ -39,11 +42,13 @@ describe('buildFicha -> POST /fichas payload', () => {
       source: 'initial',
       playerResponse: WATCH_NEURAL,
       game: null,
+      aiDisclosure: { labeled: false, source: 'unknown' },
       captions: { status: 'blocked', track: { languageCode: 'en', kind: 'manual' }, json3: null, via: null, attempts: [] },
     };
     const f = buildFicha(snapshot, { videoId: 'aircAruvnKk', isShortUrl: false });
     expect(f.url).toBe('https://www.youtube.com/watch?v=aircAruvnKk');
     expect(f.transcript).toEqual({ status: 'blocked', language: 'en', kind: 'manual', segments: [] });
     expect(f.metadata.chapters).toHaveLength(12);
+    expect(f.metadata.ai_disclosure).toEqual({ labeled: false, source: 'unknown' });
   });
 });

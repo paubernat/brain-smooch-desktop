@@ -1,0 +1,128 @@
+{
+ "playerResponse": {
+  "videoDetails": {
+   "videoId": "cZ44YIQXShY"
+  },
+  "playabilityStatus": {
+   "status": "OK"
+  }
+ },
+ "engagementPanels": [
+  {
+   "engagementPanelSectionListRenderer": {
+    "panelIdentifier": null,
+    "targetId": "engagement-panel-structured-description",
+    "content": {
+     "structuredDescriptionContentRenderer": {
+      "items": [
+       {
+        "videoDescriptionHeaderRenderer": {
+         "title": {
+          "runs": [
+           {
+            "text": "AI Baby Cute Shots That Melt Hearts – Adorable AI Generated Baby Moments"
+           },
+           {
+            "text": "#cutekids",
+            "navigationEndpoint": {
+             "clickTrackingParams": "CDcQ1soDGEwiEwijmsSI4ZmYAxWFXk8EHXoTD8XKAQQWT91W",
+             "commandMetadata": {
+              "webCommandMetadata": {
+               "url": "/hashtag/cutekids/shorts",
+               "webPageType": "WEB_PAGE_TYPE_BROWSE",
+               "rootVe": 6827,
+               "apiUrl": "/youtubei/v1/browse"
+              }
+             },
+             "browseEndpoint": {
+              "browseId": "FEhashtag",
+              "params": "6gUZCghjdXRla2lkcxgDKgtjWjQ0WUlRWFNoWQ%3D%3D"
+             }
+            },
+            "loggingDirectives": {
+             "trackingParams": "CDcQ1soDGEwiEwijmsSI4ZmYAxWFXk8EHXoTD8U=",
+             "visibility": {
+              "types": "12"
+             }
+            }
+           },
+           {
+            "text": " "
+           },
+           {
+            "text": "#aishorts",
+            "navigationEndpoint": {
+             "clickTrackingParams": "CDYQ1soDGE4iEwijmsSI4ZmYAxWFXk8EHXoTD8XKAQQWT91W",
+             "commandMetadata": {
+              "webCommandMetadata": {
+               "url": "/hashtag/aishorts/shorts",
+               "webPageType": "WEB_PAGE_TYPE_BROWSE",
+               "rootVe": 6827,
+               "apiUrl": "/youtubei/v1/browse"
+              }
+             },
+             "browseEndpoint": {
+              "browseId": "FEhashtag",
+              "params": "6gUZCghhaXNob3J0cxgDKgtjWjQ0WUlRWFNoWQ%3D%3D"
+             }
+            },
+            "loggingDirectives": {
+             "trackingParams": "CDYQ1soDGE4iEwijmsSI4ZmYAxWFXk8EHXoTD8U=",
+             "visibility": {
+              "types": "12"
+             }
+            }
+           }
+          ]
+         },
+         "channel": {
+          "simpleText": "Ravi Tech Hub"
+         }
+        }
+       },
+       {
+        "expandableVideoDescriptionBodyRenderer": {}
+       },
+       {
+        "howThisWasMadeSectionViewModel": {
+         "sectionTitle": {
+          "content": "Cómo se ha hecho"
+         },
+         "bodyText": {
+          "content": "Los sonidos o las imágenes están alteradas o se han generado completamente. Más información",
+          "commandRuns": [
+           {
+            "startIndex": 76,
+            "length": 15,
+            "onTap": {
+             "innertubeCommand": {
+              "commandMetadata": {
+               "webCommandMetadata": {
+                "url": "//support.google.com/youtube/answer/15447836?hl=es",
+                "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                "rootVe": 83769
+               }
+              },
+              "urlEndpoint": {
+               "url": "//support.google.com/youtube/answer/15447836?hl=es",
+               "target": "TARGET_NEW_WINDOW"
+              }
+             }
+            }
+           }
+          ]
+         },
+         "bodyHeader": {
+          "content": "Creado con IA"
+         },
+         "attributionText": {},
+         "shouldRemoveBottomPadding": false
+        }
+       }
+      ]
+     }
+    }
+   }
+  }
+ ]
+}

@@ -1,11 +1,12 @@
 // Floating label panel: NO / LIMITADO / LIBRE + optional reason + level
-// status (L1..L4) + pending-feedback badge. Isolated from YouTube's CSS with a
+// status (L1..L4) + pending-feedback badge + "IA" / "LIVE" badges for the
+// current video. Isolated from YouTube's CSS with a
 // closed Shadow DOM. Shortcuts: Alt+1 / Alt+2 / Alt+3 (see shortcuts.ts).
 //
 // The label buttons are never `disabled`: a disabled button swallows clicks
 // without any feedback. While the ficha is still being saved the panel is in
 // a "waiting" state and the content script queues the label instead.
-import { LABELS, type Label, type LabelInfo, type LevelStatus } from '../types';
+import { LABELS, type Label, type LabelInfo, type LevelStatus, type Metadata } from '../types';
 import { PANEL_CSS } from './panel-styles';
 import { SHORTCUTS, shortcutLabel } from './shortcuts';
 
@@ -25,6 +26,25 @@ export interface PendingFeedback {
 }
 
 type LevelView = Partial<Record<keyof LevelStatus, string>>;
+
+/** Small badge next to the title ("IA", "LIVE"). */
+export interface SignalBadge {
+  kind: 'ai' | 'live';
+  text: string;
+  title: string;
+}
+
+/** Badges for a video: creator-disclosed AI label, live now / scheduled. */
+export function signalBadges(meta: Pick<Metadata, 'ai_disclosure' | 'live'>): SignalBadge[] {
+  const badges: SignalBadge[] = [];
+  if (meta.ai_disclosure.labeled) {
+    const detail = meta.ai_disclosure.text ? `: ${meta.ai_disclosure.text}` : '';
+    badges.push({ kind: 'ai', text: 'IA', title: `Etiqueta de YouTube (declarada por el creador)${detail}` });
+  }
+  if (meta.live.is_live_now) badges.push({ kind: 'live', text: 'LIVE', title: 'Directo en curso' });
+  else if (meta.live.is_upcoming) badges.push({ kind: 'live', text: 'LIVE', title: 'Directo o estreno programado' });
+  return badges;
+}
 
 function h<K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text = ''): HTMLElementTagNameMap[K] {
   const el = document.createElement(tag);
@@ -57,6 +77,7 @@ export class LabelPanel {
   private readonly badgeEl = h('button', 'badge hidden');
   private readonly currentEl = h('span', 'current');
   private readonly titleEl = h('div', 'title');
+  private readonly signalsEl = h('span', 'signals');
   private readonly reasonEl = h('input');
   private readonly statusEl = h('div', 'status');
   private readonly calibrationEl = h('button', 'link calibrate hidden');
@@ -109,7 +130,9 @@ export class LabelPanel {
     this.calibrationEl.addEventListener('click', () => this.handlers.onOpenCalibration());
     const hint = h('div', 'hint', LABELS.map((l) => `${SHORTCUTS[l]} ${l}`).join(' · '));
     const body = h('div', 'body');
-    body.append(this.titleEl, row, this.reasonEl, this.statusEl, this.calibrationEl, hint);
+    const titleRow = h('div', 'title-row');
+    titleRow.append(this.signalsEl, this.titleEl);
+    body.append(titleRow, row, this.reasonEl, this.statusEl, this.calibrationEl, hint);
     this.panel.append(head, body);
     this.setLevels({});
   }
@@ -128,6 +151,7 @@ export class LabelPanel {
       this.reasonEl.value = '';
       this.current = null;
       this.renderLabel();
+      this.setSignals([]);
     }
     this.videoId = videoId;
     this.titleEl.textContent = title || videoId;
@@ -156,6 +180,16 @@ export class LabelPanel {
       el.title = `${key}: ${value ?? 'desconocido'}`;
       this.levelsEl.append(el);
     });
+  }
+
+  setSignals(badges: SignalBadge[]): void {
+    this.signalsEl.replaceChildren(
+      ...badges.map((b) => {
+        const el = h('span', `signal ${b.kind}`, b.text);
+        el.title = b.title;
+        return el;
+      }),
+    );
   }
 
   setLabel(info: LabelInfo | null): void {

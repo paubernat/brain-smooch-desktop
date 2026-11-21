@@ -1,0 +1,31 @@
+{
+ "playabilityStatus": {
+  "status": "OK"
+ },
+ "videoDetails": {
+  "videoId": "rFZHOHl-L8A",
+  "title": "lofi hip hop radio 📚 beats to relax/study to",
+  "lengthSeconds": "0",
+  "isLive": true,
+  "channelId": "UCSJ4gkVC6NrvII8umztf0Ow",
+  "author": "Lofi Girl",
+  "isLowLatencyLiveStream": false,
+  "latencyClass": "MDE_STREAM_OPTIMIZATIONS_RENDERER_LATENCY_NORMAL",
+  "isLiveContent": true
+ },
+ "microformat": {
+  "playerMicroformatRenderer": {
+   "externalChannelId": "UCSJ4gkVC6NrvII8umztf0Ow",
+   "isFamilySafe": true,
+   "category": "Music",
+   "publishDate": "2026-08-19T00:31:51-07:00",
+   "ownerChannelName": "Lofi Girl",
+   "liveBroadcastDetails": {
+    "isLiveNow": true,
+    "startTimestamp": "2026-08-19T07:43:43+00:00"
+   },
+   "uploadDate": "2026-08-19T00:31:51-07:00",
+   "canonicalUrl": "https://www.youtube.com/watch?v=rFZHOHl-L8A"
+  }
+ }
+}

@@ -1,0 +1,31 @@
+{
+ "playabilityStatus": {
+  "status": "LIVE_STREAM_OFFLINE"
+ },
+ "videoDetails": {
+  "videoId": "eKhoBmNB6Tg",
+  "title": "Postgame Huddle: Bucks close road schedule at Nebraska",
+  "lengthSeconds": "0",
+  "channelId": "UC2kfc69aD-JmkPNPtFqcGcQ",
+  "isUpcoming": true,
+  "author": "Ohio State Football At Buckeye Huddle",
+  "isLowLatencyLiveStream": true,
+  "latencyClass": "MDE_STREAM_OPTIMIZATIONS_RENDERER_LATENCY_LOW",
+  "isLiveContent": true
+ },
+ "microformat": {
+  "playerMicroformatRenderer": {
+   "externalChannelId": "UC2kfc69aD-JmkPNPtFqcGcQ",
+   "isFamilySafe": true,
+   "category": "Sports",
+   "publishDate": "2026-11-21T08:28:55-08:00",
+   "ownerChannelName": "Ohio State Football At Buckeye Huddle",
+   "liveBroadcastDetails": {
+    "isLiveNow": false,
+    "startTimestamp": "2026-11-21T20:45:00+00:00"
+   },
+   "uploadDate": "2026-11-21T08:28:55-08:00",
+   "canonicalUrl": "https://www.youtube.com/watch?v=eKhoBmNB6Tg"
+  }
+ }
+}

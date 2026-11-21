@@ -1,0 +1,80 @@
+{
+ "currentVideoEndpoint": {
+  "watchEndpoint": {
+   "videoId": "3wHHSYxka74"
+  }
+ },
+ "engagementPanels": [
+  {
+   "engagementPanelSectionListRenderer": {
+    "panelIdentifier": "engagement-panel-structured-description",
+    "targetId": "engagement-panel-structured-description",
+    "content": {
+     "structuredDescriptionContentRenderer": {
+      "items": [
+       {
+        "videoDescriptionHeaderRenderer": {
+         "title": {
+          "runs": [
+           {
+            "text": "🦅 \"¿Generado por IA, no?\" - Desbloqueando el video creativo con Google VEO 3: ¡Mi último experime..."
+           }
+          ]
+         },
+         "channel": {
+          "simpleText": "Adrian Video Image"
+         }
+        }
+       },
+       {
+        "expandableVideoDescriptionBodyRenderer": {}
+       },
+       {
+        "howThisWasMadeSectionViewModel": {
+         "sectionTitle": {
+          "content": "Cómo se ha hecho"
+         },
+         "bodyText": {
+          "content": "Los sonidos o las imágenes están alteradas o se han generado completamente. Más información",
+          "commandRuns": [
+           {
+            "startIndex": 76,
+            "length": 15,
+            "onTap": {
+             "innertubeCommand": {
+              "commandMetadata": {
+               "webCommandMetadata": {
+                "url": "//support.google.com/youtube/answer/15447836?hl=es",
+                "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                "rootVe": 83769
+               }
+              },
+              "urlEndpoint": {
+               "url": "//support.google.com/youtube/answer/15447836?hl=es",
+               "target": "TARGET_NEW_WINDOW"
+              }
+             }
+            }
+           }
+          ]
+         },
+         "bodyHeader": {
+          "content": "Creado con IA"
+         },
+         "attributionText": {},
+         "shouldRemoveBottomPadding": false
+        }
+       },
+       {
+        "videoDescriptionTranscriptSectionRenderer": {}
+       },
+       {
+        "videoDescriptionInfocardsSectionRenderer": {}
+       }
+      ]
+     }
+    }
+   }
+  }
+ ]
+}
