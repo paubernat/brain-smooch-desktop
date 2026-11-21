@@ -14,3 +14,10 @@ Decisiones de producto tomadas durante la prueba, para aplicar cuando se constru
 
 ## Extracción
 - L3 `blocked` por el token `pot` en algunos vídeos: medir la frecuencia con los datos etiquetados y, si es alta, añadir la alternativa `youtube-transcript-api` en el servicio (PLAN §6.4 b).
+
+## Candado y desinstalación (decisión del usuario, 2026-11-21)
+- Modelo de confianza: **contraseña que el usuario entrega a otra persona**. Sin esa contraseña no se puede relajar la política, parar el servicio ni desinstalar.
+- Objetivo de dificultad: deshacerlo sin la contraseña debe ser **muy costoso** (varias capas independientes que hay que desmontar a mano), pero **siempre recuperable con la contraseña** — nada que deje el PC inutilizable.
+- Capas previstas: cuenta de Windows estándar para el día a día (admin con la contraseña entregada), servicio de Windows como SYSTEM con watchdog, extensión forzada por políticas de navegador, `URLBlocklist` + `hosts`, DoH/privado/`about:config` desactivados, vigilante de navegadores no gestionados, fail-closed si el servicio no responde.
+- Endurecer: inmediato. Relajar: contraseña (+ espera opcional de 24 h).
+- Nota: Windows 11 Home (sin AppLocker/gpedit); Chrome/Edge solo fuerzan extensiones de su tienda en equipos no gestionados → bloquear YouTube por política en esos navegadores y dejar Firefox como único navegador con YouTube.
