@@ -1,0 +1,26 @@
+# Secrets
+.env
+
+# Data (SQLite + frames cache)
+data/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Node / extension build
+node_modules/
+extension/dist/
+extension/web-ext-artifacts/
+
+# Reports output (keep folder)
+eval/reports/*
+!eval/reports/.gitkeep
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
