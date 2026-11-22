@@ -158,6 +158,27 @@ def test_edit_applies_instruction(client: TestClient, mock_net: respx.MockRouter
     assert blank.status_code == 422
 
 
+def test_edit_corrects_open_proposal(client: TestClient, mock_net: respx.MockRouter) -> None:
+    output = {key: value for key, value in REFRESH_OUTPUT.items() if key not in ("rationale",)} | {
+        "changelog": "Dejo LIBRE como estaba."
+    }
+    route = mock_net.post(ANTHROPIC_URL).mock(
+        return_value=httpx.Response(200, json=anthropic_body(output))
+    )
+    saved = client.get("/policy").json()["content"]
+    response = client.post(
+        "/policy/edit",
+        json={"policy": saved, "instruction": "no toques LIBRE", "reference": saved},
+    )
+    assert response.status_code == 200
+    request = json.loads(route.calls.last.request.content)
+    text = request["messages"][0]["content"][0]["text"]
+    assert "Política guardada (referencia)" in text
+    assert "Propuesta en revisión" in text
+    assert "no toques LIBRE" in text
+    assert "corrección de esa propuesta" in json.dumps(request["system"], ensure_ascii=False)
+
+
 def test_select_feedback_prefers_reasons_then_recent() -> None:
     def example(i: int, reason: str | None = None) -> FeedbackExample:
         return FeedbackExample(

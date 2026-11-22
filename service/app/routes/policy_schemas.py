@@ -61,3 +61,6 @@ class RefreshIn(BaseModel):
 class EditIn(BaseModel):
     policy: PolicyContent
     instruction: str = Field(min_length=1, max_length=2000)
+    # Política guardada cuando `policy` es una propuesta abierta: la instrucción es una
+    # corrección de la propuesta y lo que el usuario rechaza vuelve a su redacción.
+    reference: PolicyContent | None = None

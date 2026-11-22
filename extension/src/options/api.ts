@@ -58,8 +58,9 @@ export const optionsApi = {
   /** `instruction`: optional free text for Claude, with high priority over the labels. */
   refresh: (opts: { config?: string; instruction?: string } = {}) =>
     fetchService<RefreshResult>('POST', '/policy/refresh', refreshBody(opts), LLM_TIMEOUT_MS),
-  edit: (policy: PolicyContent, instruction: string) =>
-    fetchService<EditResult>('POST', '/policy/edit', { policy, instruction }, LLM_TIMEOUT_MS),
+  /** `reference`: the saved policy when `policy` is an open proposal (the instruction corrects it). */
+  edit: (policy: PolicyContent, instruction: string, reference?: PolicyContent) =>
+    fetchService<EditResult>('POST', '/policy/edit', reference ? { policy, instruction, reference } : { policy, instruction }, LLM_TIMEOUT_MS),
   judges: () => fetchService<JudgesOut>('GET', '/judges'),
   labelStats: () => fetchService<LabelStats>('GET', '/labels/stats'),
   liveSettings: () => fetchService<LiveSettings>('GET', '/settings/live'),

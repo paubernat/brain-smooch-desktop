@@ -98,6 +98,19 @@ algo, quítalo de todos los sitios donde aparezca (descripciones y listas de can
 """
 )
 
+EDIT_PROPOSAL_SYSTEM = (
+    _RULES
+    + _CHANNEL_RULES
+    + """
+Tarea: el usuario está revisando una propuesta de política (un cambio sobre la política \
+guardada) y su instrucción es una corrección de esa propuesta. Lo que rechace («quita…», \
+«deja … como estaba», «no toques…») vuelve exactamente a la redacción de la política guardada \
+(o se elimina si allí no existía). No cambies nada más: el resto de la propuesta queda idéntico \
+(mismas frases, mismo orden), y no añadas cambios nuevos salvo que la instrucción los pida. \
+`changelog`: una sola frase en español que describa la corrección hecha.
+"""
+)
+
 
 def _string() -> dict[str, str]:
     return {"type": "string"}
@@ -272,8 +285,17 @@ def refresh_user_message(
     return "\n\n".join(parts)
 
 
-def edit_user_message(policy: PolicyContent, instruction: str) -> str:
+def edit_user_message(
+    policy: PolicyContent, instruction: str, reference: PolicyContent | None = None
+) -> str:
+    if reference is None:
+        return (
+            f"Política actual:\n{_policy_json(policy, with_channels=True)}\n\n"
+            f"Instrucción del usuario:\n{instruction.strip()}"
+        )
     return (
-        f"Política actual:\n{_policy_json(policy, with_channels=True)}\n\n"
-        f"Instrucción del usuario:\n{instruction.strip()}"
+        f"Política guardada (referencia):\n{_policy_json(reference, with_channels=True)}\n\n"
+        "Propuesta en revisión (la que hay que corregir y devolver):\n"
+        f"{_policy_json(policy, with_channels=True)}\n\n"
+        f"Corrección del usuario a la propuesta:\n{instruction.strip()}"
     )

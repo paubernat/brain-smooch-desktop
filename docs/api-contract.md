@@ -222,7 +222,7 @@ El servicio resume las fichas (mismos niveles que `config`) y toma la etiqueta r
 Respuesta: como `/policy/draft` más `"changelog": ["..."]`. `422` si no queda ningún error dev válido.
 
 ### `POST /policy/edit`
-`{"policy": PolicyContent, "instruction": "quita lo de Fireship"}` → Claude aplica solo esa instrucción (puede tocar `channel_lists`). No guarda nada.
+`{"policy": PolicyContent, "instruction": "quita lo de Fireship"}` → Claude aplica solo esa instrucción (puede tocar `channel_lists`). No guarda nada. Opcional `"reference": PolicyContent` (la política guardada) cuando `policy` es una propuesta abierta: la instrucción se trata como corrección de la propuesta y lo que el usuario rechaza vuelve a la redacción de `reference`, sin cambiar nada más.
 Respuesta: `{"content": PolicyContent, "changelog": "una frase", "usage": {...}}`. `422` si la instrucción está vacía, `503` sin clave, `502` si Claude falla.
 
 ### Recalibración: `GET /policy/feedback` y `POST /policy/refresh`

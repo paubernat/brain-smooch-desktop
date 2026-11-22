@@ -1,7 +1,9 @@
 // "Calibración" card on the landing: labels not yet incorporated into the
 // policy and a button that asks Claude for a revised policy from them (with
 // optional free-text instructions for the AI). "✨ Modificar con IA" applies a
-// single instruction to the saved policy, or to the open proposal. Either way
+// single instruction to the saved policy; with a proposal open, the same box sits
+// under its diff and corrects the proposal (what the user rejects goes back to
+// the saved wording). Either way
 // the result is shown as a diff + changelog; accepting saves it (new version,
 // through the lock: relaxing needs the admin session), marks the labels used
 // as incorporated and sends a pulse through the statues. Labels from both splits are used.
@@ -95,11 +97,12 @@ export class CalibrationCard {
       {
         getPolicy: () => this.editable(),
         setPolicy: (policy, change) => this.applyAiEdit(policy, change),
+        getReference: () => (this.proposal ? this.current?.content : undefined),
       },
       { trigger: t('calibration.aiEdit'), triggerTitle: t('calibration.aiEditTitle') },
     );
     this.aiEdit.trigger.disabled = true; // until the saved policy is loaded
-    this.syncAiHelp();
+    this.syncAiEdit();
     this.element.append(
       ...corners(),
       h('header', {}, h('span', { className: 'mode-icon', text: '⟳', attrs: { 'aria-hidden': 'true' } }), h('h2', { text: t('calibration.title'), attrs: { id: 'calibration-title' } })),
@@ -150,7 +153,7 @@ export class CalibrationCard {
     );
   }
 
-  /** The ✨ trigger is always shown (any pending count, with or without a proposal open). */
+  /** The ✨ trigger (edit the saved policy) is shown at any pending count; it hides while a proposal is open. */
   private actions(refresh?: HTMLButtonElement): HTMLElement {
     return h('div', { className: 'calibration-actions' }, this.aiEdit.trigger, refresh ?? null);
   }
@@ -162,9 +165,17 @@ export class CalibrationCard {
     return content;
   }
 
-  private syncAiHelp(): void {
-    const target = t(this.proposal ? 'calibration.aiTargetProposal' : 'calibration.aiTargetSaved');
-    this.aiEdit.setHelp(t('calibration.aiEditHelp', { target }));
+  /**
+   * One ✨ box (so its undo history survives): with a proposal open it sits inline under the
+   * diff, always expanded, and corrects the proposal; otherwise it hangs from the top trigger
+   * and edits the saved policy.
+   */
+  private syncAiEdit(): void {
+    const open = this.proposal !== null;
+    this.aiEdit.trigger.classList.toggle('hidden', open);
+    this.aiEdit.setInline(open, open ? t('calibration.proposalEditPlaceholder') : undefined);
+    this.aiEdit.setHelp(open ? t('calibration.proposalEditHelp') : t('calibration.aiEditHelp', { target: t('calibration.aiTargetSaved') }));
+    if (!open && this.aiEdit.element.parentElement !== this.element) this.proposalSlot.before(this.aiEdit.element);
   }
 
   private applyAiEdit(policy: PolicyContent, change: AiEditChange): void {
@@ -210,12 +221,13 @@ export class CalibrationCard {
   private discard(): void {
     this.proposal = null;
     this.aiEdit.reset();
-    this.syncAiHelp();
+    this.syncAiEdit();
+    this.aiEdit.close();
     show(this.proposalSlot);
   }
 
   private renderProposal(): void {
-    this.syncAiHelp();
+    this.syncAiEdit();
     const p = this.proposal;
     const current = this.current;
     if (!p || !current) {
@@ -239,6 +251,7 @@ export class CalibrationCard {
         }),
         p.instruction ? h('p', { className: 'muted small', text: t('calibration.instructionUsed', { text: p.instruction }) }) : null,
         policyDiffView(current.content, p.content),
+        this.aiEdit.element,
         h('div', { className: 'actions' }, status, discard, accept),
       ),
     );
@@ -261,7 +274,8 @@ export class CalibrationCard {
     this.proposal = null;
     this.instruction.value = '';
     this.aiEdit.reset();
-    this.syncAiHelp();
+    this.syncAiEdit();
+    this.aiEdit.close();
     await markPolicySaved();
     pulseStatues();
     show(

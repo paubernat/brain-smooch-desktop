@@ -17,6 +17,8 @@ export interface AiEditTarget {
   getPolicy(): PolicyContent;
   /** Replace the editable draft (and whatever state mirrors it). */
   setPolicy(policy: PolicyContent, change: AiEditChange): void;
+  /** The saved policy when `getPolicy()` is a proposal under review: the instruction then corrects that proposal. */
+  getReference?(): PolicyContent | undefined;
 }
 
 /** Labels for hosts other than a draft editor (e.g. the calibration card). */
@@ -36,6 +38,9 @@ export class AiEditBox {
   private readonly undoButton: HTMLButtonElement;
   private readonly history = new UndoStack<PolicyContent>();
   private readonly help: HTMLElement;
+  private readonly closeButton: HTMLButtonElement;
+  private readonly defaultPlaceholder: string;
+  private inline = false;
 
   constructor(
     private readonly target: AiEditTarget,
@@ -49,25 +54,42 @@ export class AiEditBox {
     const apply = button(t('aiEdit.apply'), () => void withBusy(apply, t('aiEdit.applying'), () => this.apply()), 'primary');
     this.undoButton = button(t('aiEdit.undo'), () => this.undo(), 'ghost');
     this.undoButton.disabled = true;
+    this.closeButton = button(t('common.close'), () => this.close(), 'ghost');
+    this.defaultPlaceholder = this.input.placeholder;
     this.input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         apply.click();
       }
-      if (e.key === 'Escape') this.close();
+      if (e.key === 'Escape' && !this.inline) this.close();
     });
     this.element = h(
       'div',
       { className: 'ai-edit hidden' },
       this.help,
       this.input,
-      h('div', { className: 'actions inline' }, apply, this.undoButton, button(t('common.close'), () => this.close(), 'ghost')),
+      h('div', { className: 'actions inline' }, apply, this.undoButton, this.closeButton),
       this.status,
     );
   }
 
   setHelp(text: string): void {
     this.help.textContent = text;
+  }
+
+  /**
+   * Inline: always expanded, without a close button (the trigger is not used), e.g. attached
+   * to a diff. Leaving inline mode keeps the box open so its last message stays visible.
+   */
+  setInline(inline: boolean, placeholder?: string): void {
+    this.inline = inline;
+    this.element.classList.toggle('inline', inline);
+    this.closeButton.classList.toggle('hidden', inline);
+    this.input.placeholder = placeholder ?? this.defaultPlaceholder;
+    if (inline || !this.element.classList.contains('hidden')) {
+      this.element.classList.remove('hidden');
+      this.trigger.setAttribute('aria-expanded', 'true');
+    }
   }
 
   /** Forget the undo history and the last message (the draft was replaced from outside). */
@@ -83,7 +105,7 @@ export class AiEditBox {
     if (open) this.input.focus();
   }
 
-  private close(): void {
+  close(): void {
     this.element.classList.add('hidden');
     this.trigger.setAttribute('aria-expanded', 'false');
   }
@@ -95,7 +117,7 @@ export class AiEditBox {
       return;
     }
     const before = this.target.getPolicy();
-    const res = await optionsApi.edit(before, instruction);
+    const res = await optionsApi.edit(before, instruction, this.target.getReference?.());
     if (!res.ok) {
       show(this.status, errorNotice(res.error, res.status, t('aiEdit.failed')));
       return;

@@ -141,6 +141,8 @@ async def post_edit(body: EditIn, author: AuthorDep) -> EditResult:
     if not body.instruction.strip():
         raise HTTPException(status_code=422, detail="instruction is empty")
     try:
-        return await edit_with_instruction(author, body.policy, body.instruction)
+        return await edit_with_instruction(
+            author, body.policy, body.instruction, reference=body.reference
+        )
     except JudgeError as exc:
         raise HTTPException(status_code=502, detail=f"policy author failed: {exc}") from exc

@@ -111,15 +111,21 @@ async def refresh_with_feedback(
 
 
 async def edit_with_instruction(
-    client: ClaudeAuthorClient, policy: PolicyContent, instruction: str
+    client: ClaudeAuthorClient,
+    policy: PolicyContent,
+    instruction: str,
+    reference: PolicyContent | None = None,
 ) -> EditResult:
-    """Aplica una instrucción libre («quita lo de Fireship») a la política, sin guardar."""
+    """Aplica una instrucción libre («quita lo de Fireship») a la política, sin guardar.
+
+    Con `reference` (la política guardada), `policy` es una propuesta y la instrucción una
+    corrección de esa propuesta: lo rechazado vuelve a la redacción de `reference`."""
     instruction = instruction.strip()
     if not instruction:
         raise ValueError("instruction is empty")
     data, usage = await client.complete(
-        prompts.EDIT_SYSTEM,
-        prompts.edit_user_message(policy, instruction[:MAX_INSTRUCTION_CHARS]),
+        prompts.EDIT_SYSTEM if reference is None else prompts.EDIT_PROPOSAL_SYSTEM,
+        prompts.edit_user_message(policy, instruction[:MAX_INSTRUCTION_CHARS], reference),
         prompts.edit_schema(),
     )
     return EditResult(
