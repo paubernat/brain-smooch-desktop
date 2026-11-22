@@ -126,9 +126,16 @@ function Invoke-Directories {
         }
     }
     Invoke-Change "ACL de $BsRoot : SYSTEM y Administradores control total, Usuarios solo lectura" {
+        # Permisos explícitos SOLO en la raíz. No usar /T con /inheritance:r: en una reinstalación
+        # quitaba la herencia de cada fichero existente y, como (OI)(CI) no aplica a ficheros,
+        # los dejaba con la DACL vacía (nadie, ni Administradores, podía sobrescribirlos).
         Invoke-Native icacls.exe @($BsRoot, '/inheritance:r', '/grant:r',
-            "*$($SidSystem):(OI)(CI)F", "*$($SidAdministrators):(OI)(CI)F", "*$($SidUsers):(OI)(CI)RX", '/T', '/C', '/Q')
-        # El /T anterior también da lectura a Usuarios en un secrets.env existente: cerrarlo ya.
+            "*$($SidSystem):(OI)(CI)F", "*$($SidAdministrators):(OI)(CI)F", "*$($SidUsers):(OI)(CI)RX", '/C', '/Q')
+        # El contenido existente vuelve a heredar de la raíz.
+        if (Get-ChildItem -LiteralPath $BsRoot -Force -ErrorAction SilentlyContinue) {
+            Invoke-Native icacls.exe @((Join-Path $BsRoot '*'), '/reset', '/T', '/C', '/Q')
+        }
+        # La herencia también da lectura a Usuarios en un secrets.env existente: cerrarlo ya.
         $existingSecrets = Join-Path $BsRoot 'secrets.env'
         if (Test-Path $existingSecrets) { Protect-Secrets $existingSecrets }
     }
