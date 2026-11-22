@@ -406,7 +406,7 @@ export const ca: Catalogue = {
   'layers.event.browser_closed': 'Tancat',
   'layers.event.error': 'Error',
   'live.threshold': 'Llindar de confiança (%)',
-  'live.thresholdHint': 'Per sota, el bloqueig tracta el vídeo com a LIMITADO (mai LIBRE per dubte). Baixar-lo és relaxar.',
+  'live.thresholdHint': 'Un LIBRE per sota es tracta com a LIMITADO. Un NO bloqueja sempre. Baixar-lo és relaxar.',
   'gate.eyebrow.deciding': 'Brain Smooch · comprovant',
   'gate.eyebrow.blocked': 'Brain Smooch · bloquejat',
   'gate.deciding.title': 'Decidint…',

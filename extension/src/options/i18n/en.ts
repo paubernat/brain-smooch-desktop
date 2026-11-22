@@ -406,7 +406,7 @@ export const en: Catalogue = {
   'layers.event.browser_closed': 'Closed',
   'layers.event.error': 'Error',
   'live.threshold': 'Confidence threshold (%)',
-  'live.thresholdHint': 'Below it, blocking treats the video as LIMITADO (never LIBRE out of doubt). Lowering it relaxes.',
+  'live.thresholdHint': 'A LIBRE verdict below it is treated as LIMITADO. A NO always blocks. Lowering it relaxes.',
   'gate.eyebrow.deciding': 'Brain Smooch · checking',
   'gate.eyebrow.blocked': 'Brain Smooch · blocked',
   'gate.deciding.title': 'Deciding…',

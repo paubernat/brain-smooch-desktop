@@ -57,7 +57,9 @@ def gate_decision(
     min_confidence: float,
     rule: str | None = None,
 ) -> GateDecision:
-    low = not from_rule and confidence < min_confidence
+    # El umbral solo rebaja LIBRE: un LIBRE dudoso pasa a LIMITADO. Un NO del modelo bloquea
+    # siempre (antes un NO dudoso pasaba a LIMITADO, y subir el umbral acababa relajando).
+    low = not from_rule and label == Label.LIBRE and confidence < min_confidence
     effective = Label.LIMITADO if low else label
     return GateDecision(
         action=_ACTIONS[effective],

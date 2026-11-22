@@ -405,7 +405,7 @@ export const es = {
   'layers.event.browser_closed': 'Cerrado',
   'layers.event.error': 'Error',
   'live.threshold': 'Umbral de confianza (%)',
-  'live.thresholdHint': 'Con menos confianza, el bloqueo trata el vídeo como LIMITADO (nunca LIBRE por duda). Bajarlo es relajar.',
+  'live.thresholdHint': 'Un LIBRE con menos confianza se trata como LIMITADO. Un NO bloquea siempre. Bajarlo es relajar.',
   'gate.eyebrow.deciding': 'Brain Smooch · comprobando',
   'gate.eyebrow.blocked': 'Brain Smooch · bloqueado',
   'gate.deciding.title': 'Decidiendo…',

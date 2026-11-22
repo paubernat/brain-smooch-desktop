@@ -19,7 +19,8 @@ def test_gate_decision_threshold() -> None:
     low = gate_decision(Label.LIBRE, 0.5, from_rule=False, min_confidence=0.6)
     assert low.action == "limit" and low.label == Label.LIMITADO and low.low_confidence
     assert gate_decision(Label.NO, 0.9, from_rule=False, min_confidence=0.6).action == "block"
-    assert gate_decision(Label.NO, 0.4, from_rule=False, min_confidence=0.6).action == "limit"
+    no_low = gate_decision(Label.NO, 0.4, from_rule=False, min_confidence=0.6)
+    assert no_low.action == "block" and not no_low.low_confidence
     assert gate_decision(Label.LIMITADO, 0.9, from_rule=False, min_confidence=0.6).action == "limit"
     rule = gate_decision(Label.NO, 1.0, from_rule=True, min_confidence=1.0)
     assert rule.action == "block" and not rule.low_confidence

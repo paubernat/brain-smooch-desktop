@@ -93,7 +93,7 @@ Respuesta `200` `{"video_id": "...", "label": "...", "reason": "...", "split": "
 }
 ```
 - `source` ∈ `rule | model`; con `rule`, `rule` ∈ `channel_list | block_live | block_ai_labeled` y `reason` lo explica.
-- `gate` (bloqueo en Firefox, PLAN-FASE2 H1): **siempre presente**, aunque el veredicto esté oculto (`revealed: false`). `action` ∈ `block | limit | allow` (NO / LIMITADO / LIBRE). `label` es la etiqueta efectiva: un veredicto del **modelo** con `confidence < min_confidence` (de `/settings/live`) pasa a `LIMITADO` con `low_confidence: true` (nunca LIBRE por duda). Las reglas fijas no tienen umbral. `source`, `rule` y `confidence` sirven para explicar el bloqueo (la extensión traduce el motivo).
+- `gate` (bloqueo en Firefox, PLAN-FASE2 H1): **siempre presente**, aunque el veredicto esté oculto (`revealed: false`). `action` ∈ `block | limit | allow` (NO / LIMITADO / LIBRE). `label` es la etiqueta efectiva: un veredicto **LIBRE** del modelo con `confidence < min_confidence` (de `/settings/live`) pasa a `LIMITADO` con `low_confidence: true`; un NO del modelo bloquea siempre. Las reglas fijas no tienen umbral. `source`, `rule` y `confidence` sirven para explicar el bloqueo (la extensión traduce el motivo).
 - Con el bloqueo activo (`/settings/enforcement` `mode: "soft"`) cada `POST`/`GET` cuenta como veredicto visto (`verdict_exposures`): el gate actúa según él, así que una etiqueta posterior queda con `verdict_seen_before_label`.
 - `revealed: false` (con `reveal: "after_label"` y el vídeo sin etiquetar): `label`, `confidence`, `probs`, `source`, `rule` y `reason` van a `null`. Tras etiquetar, `GET` lo devuelve visible.
 - `cost_usd`: coste de esta petición (0 si viene de caché o de una regla).
