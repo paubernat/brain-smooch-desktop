@@ -1,0 +1,40 @@
+<!--
+  WinSW configuration of the Brain Smooch service (PLAN-FASE2 §4 E2).
+
+  WinSW is NOT committed. install.ps1 downloads the pinned release and checks its hash:
+    version: v2.12.0 (WinSW-x64.exe, self-contained)
+    url:     https://github.com/winsw/winsw/releases/download/v2.12.0/WinSW-x64.exe
+    sha256:  05B82D46AD331CC16BDC00DE5C6332C1EF818DF8CEEFCD49C726553209B3A0DA
+  and saves it as C:\ProgramData\BrainSmooch\winsw\BrainSmooch.exe next to this file
+  (WinSW reads the XML with the same name as the exe). %BASE% is that folder.
+
+  The service runs as LocalSystem (WinSW's default), starts automatically and is restarted
+  by the Service Control Manager up to three times if it dies; the watchdog task (E3) covers
+  the rest.
+-->
+<service>
+  <id>BrainSmooch</id>
+  <name>Brain Smooch</name>
+  <description>Brain Smooch: YouTube filter and website blocker (local service on 127.0.0.1:8765).</description>
+
+  <executable>%BASE%\..\venv\Scripts\python.exe</executable>
+  <arguments>-m app</arguments>
+  <workingdirectory>%BASE%\..\app\service</workingdirectory>
+
+  <env name="BS_PRODUCTION" value="1" />
+  <env name="PYTHONUNBUFFERED" value="1" />
+  <env name="PYTHONDONTWRITEBYTECODE" value="1" />
+
+  <startmode>Automatic</startmode>
+  <onfailure action="restart" delay="10 sec" />
+  <onfailure action="restart" delay="20 sec" />
+  <onfailure action="restart" delay="60 sec" />
+  <resetfailure>1 hour</resetfailure>
+  <stoptimeout>15 sec</stoptimeout>
+
+  <logpath>%BASE%\..\logs</logpath>
+  <log mode="roll-by-size">
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>8</keepFiles>
+  </log>
+</service>

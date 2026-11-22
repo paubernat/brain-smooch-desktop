@@ -264,3 +264,13 @@ La web local guarda `uiLanguage`, `setupState` y `profileWizard` en el `localSto
 - `blockedSites`: copia de `blocked_sites` que usa el background para bloquear aunque el servicio esté apagado.
 - `setupState`: `{"policySaved": bool, "sitesReviewed": bool, "launched": bool, "light": {"manual": 0..1, "agentic": 0..1}}`. `setup_complete` = `policySaved && sitesReviewed` (desbloquea el cohete).
 - `profileWizard`: textos y borrador del asistente (ya existía).
+
+## Capas de Windows (`/system/*`, PLAN-FASE2 §4, H4–H7)
+
+Código en `service/app/enforce/`; todo lo que toca Windows pasa por `LayerBackend` (`WindowsBackend` real, `FakeBackend` en los tests). En desarrollo el servicio **solo lee** el estado de las capas; las aplica y repara únicamente instalado (`BS_PRODUCTION=1`, LocalSystem, datos en `C:\ProgramData\BrainSmooch\`; ver `installer/README.md`).
+
+- `GET /system/layers` → `{"production": false, "enforcing_layers": false, "admin": false, "suspended": false, "browser_watch": "off|observe|enforce", "layers": [{"id": "E4", "key": "firefox_policies", "status": "ok|missing|pending|requires_admin", "managed": true, "detail": "..."}]}` (E1–E9 en orden). `missing` = debería estar y falta o está alterada; `requires_admin` = la pone el instalador.
+- `GET /system/events?limit=50&kind=tamper&kind=error` → `[{"id", "at", "kind", "layer", "detail"}]`, más recientes primero. `kind` ∈ `tamper` (capa alterada y restaurada por la integridad), `applied`, `removed`, `browser_seen` (vigilante en `observe`), `browser_closed`, `error`.
+- `POST /system/apply`: endurecer, sin contraseña: reactiva la integridad (tras una desinstalación a medias) y aplica ya. `409` si el servicio no está instalado.
+- `POST /system/uninstall`: relajar: sesión de administrador + `X-CSRF-Token` si hay contraseña (`401`/`403`). Suspende la integridad y el vigilante (persiste entre reinicios) y retira E6 → E5 → E4; responde `{"removed": ["E6", "E5", "E4"], "next_step": "run uninstall.ps1"}`. `409` si no está instalado.
+- Guardar la política (`PUT /policy` o una solicitud aplicada) despierta la integridad: `blocked_sites` pasa a `policies.json`, `URLBlocklist` y `hosts` sin esperar al minuto.

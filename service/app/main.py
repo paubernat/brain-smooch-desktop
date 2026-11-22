@@ -19,6 +19,11 @@ from fastapi.staticfiles import StaticFiles
 
 from app import db
 from app.config import Settings, get_settings
+from app.enforce.backend import LayerBackend
+from app.enforce.manager import EnforceManager
+from app.enforce.windows_backend import WindowsBackend
+from app.enforcement import SETTINGS_KEY as ENFORCEMENT_KEY
+from app.enforcement import EnforcementSettings
 from app.enrich.channel import ChannelEnricher
 from app.enrich.pipeline import EnrichmentPipeline
 from app.live_judge import LiveJudge
@@ -38,7 +43,9 @@ from app.routes import judges as judges_routes
 from app.routes import lock as lock_routes
 from app.routes import policy as policy_routes
 from app.routes import quota as quota_routes
+from app.routes import system as system_routes
 from app.routes import verdicts as verdict_routes
+from app.settings_store import load_model
 from app.state import AppState, get_ctx
 
 EXTENSION_ORIGIN_REGEX = r"^moz-extension://.*$"
@@ -49,7 +56,9 @@ RELAX_APPLY_INTERVAL_S = 60.0
 log = logging.getLogger(__name__)
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None, backend: LayerBackend | None = None) -> FastAPI:
+    """`backend`: what the Windows layers touch (tests pass a `FakeBackend`). The real one
+    writes only when the layers are enforced (production)."""
     settings = settings or get_settings()
 
     @asynccontextmanager
@@ -83,6 +92,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 SessionManager(settings.admin_session_s),
                 RelaxRequestStore(database),
             )
+            enforce = EnforceManager(
+                settings,
+                backend or WindowsBackend(allow_writes=settings.enforce_layers),
+                database,
+                blocked_sites=lambda: tuple(policies.load().blocked_sites),
+                enforcing=lambda: (
+                    load_model(database, ENFORCEMENT_KEY, EnforcementSettings).mode == "soft"
+                ),
+            )
             ctx = AppState(
                 settings,
                 database,
@@ -94,11 +112,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 quota=QuotaTracker(database),
                 lock=guard,
                 login_limiter=LoginLimiter(database),
+                enforce=enforce,
             )
             app.state.ctx = ctx
             tasks = [
                 asyncio.create_task(channels.run_forever()),
                 asyncio.create_task(_apply_relax_requests_forever(ctx)),
+                *enforce.tasks(),
             ]
             tasks += [asyncio.create_task(pipeline.enrich_frames(v)) for v in pipeline.resume()]
             try:
@@ -126,6 +146,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(quota_routes.router)
     app.include_router(enforcement_routes.router)
     app.include_router(lock_routes.router)
+    app.include_router(system_routes.router)
     _register_web(app)
     return app
 

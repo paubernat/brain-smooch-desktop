@@ -167,6 +167,16 @@ CREATE TABLE IF NOT EXISTS relax_requests (
         CHECK (status IN ('pending', 'applied', 'cancelled', 'conflict')),
     resolved_at TEXT
 );
+
+-- Eventos de las capas de Windows (app/enforce/): manipulaciones reparadas, navegadores
+-- vistos o cerrados por el vigilante, aplicaciones y retiradas de capas.
+CREATE TABLE IF NOT EXISTS enforce_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    at TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    layer TEXT,
+    detail TEXT NOT NULL DEFAULT ''
+);
 """
 
 # Columnas añadidas después de la primera versión del esquema (migración aditiva).

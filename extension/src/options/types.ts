@@ -142,3 +142,34 @@ export interface LabelStats {
   total: number;
   by_split: { dev: number; test: number };
 }
+
+// Windows enforcement layers (GET /system/layers, /system/events; service app/enforce/).
+export type LayerId = 'E1' | 'E2' | 'E3' | 'E4' | 'E5' | 'E6' | 'E7' | 'E8' | 'E9';
+export type LayerStatus = 'ok' | 'missing' | 'pending' | 'requires_admin';
+
+export interface LayerReport {
+  id: LayerId;
+  key: string;
+  status: LayerStatus;
+  managed: boolean;
+  detail: string | null;
+}
+
+export interface SystemStatus {
+  production: boolean;
+  enforcing_layers: boolean;
+  admin: boolean;
+  suspended: boolean;
+  browser_watch: 'off' | 'observe' | 'enforce';
+  layers: LayerReport[];
+}
+
+export type EnforceEventKind = 'tamper' | 'applied' | 'removed' | 'browser_seen' | 'browser_closed' | 'error';
+
+export interface EnforceEvent {
+  id: number;
+  at: string;
+  kind: EnforceEventKind;
+  layer: string | null;
+  detail: string;
+}

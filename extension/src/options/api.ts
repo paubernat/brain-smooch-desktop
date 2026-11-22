@@ -19,6 +19,9 @@ import type {
   Preferences,
   RefineResult,
   RefreshResult,
+  EnforceEvent,
+  EnforceEventKind,
+  SystemStatus,
 } from './types';
 
 const LLM_TIMEOUT_MS = 4 * 60_000; // Claude drafting can take a while
@@ -66,7 +69,17 @@ export const optionsApi = {
   quotaToday: () => fetchService<QuotaToday>('GET', '/quota/today'),
   saveUiLanguage: (language: string) => fetchService<{ language: string | null }>('PUT', '/settings/ui', { language }),
   uiSettings: () => fetchService<{ language: string | null }>('GET', '/settings/ui'),
+  systemLayers: () => fetchService<SystemStatus>('GET', '/system/layers', undefined, 20_000),
+  systemEvents: (kinds: EnforceEventKind[], limit = 10) =>
+    fetchService<EnforceEvent[]>('GET', `/system/events?${systemEventsQuery(kinds, limit)}`),
 };
+
+/** `?kind=tamper&kind=error&limit=10` (FastAPI list query parameter). */
+export function systemEventsQuery(kinds: readonly EnforceEventKind[], limit: number): string {
+  const params = new URLSearchParams(kinds.map((kind) => ['kind', kind]));
+  params.set('limit', String(limit));
+  return params.toString();
+}
 
 export interface QuotaSettings {
   daily_minutes: number;

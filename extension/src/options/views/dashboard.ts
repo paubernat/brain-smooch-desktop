@@ -10,8 +10,11 @@ import { t } from '../i18n';
 import { hrefFor, type Route } from '../router';
 import type { SetupState } from '../setup-state';
 import type { PolicyOut } from '../types';
+import { LayersCard } from './layers-card';
 import { LockCard } from './lock-card';
 import { ProtectionCard, quotaMeter } from './protection-card';
+
+const QUOTA_REFRESH_MS = 15_000;
 
 function stat(label: string, value: string, tone: 'green' | 'orange'): { el: HTMLElement; value: HTMLElement } {
   const valueEl = h('span', { className: 'stat-value', text: value });
@@ -48,11 +51,18 @@ export function renderDashboard(setup: SetupState, policy: PolicyOut | null): HT
     quota,
     stat(t('dashboard.policy'), policy ? `v${policy.version}` : unknown, 'green'),
   ];
-  void optionsApi.quotaToday().then((res) => {
-    if (!res.ok) return;
-    quota.value.replaceChildren(formatMinutes(res.data.remaining_s), h('small', { className: 'mono', text: ` / ${formatMinutes(res.data.daily_s)}` }));
-    meter.replaceChildren(quotaMeter(res.data));
-  });
+  const refreshQuota = () =>
+    void optionsApi.quotaToday().then((res) => {
+      if (!res.ok) return;
+      quota.value.replaceChildren(formatMinutes(res.data.remaining_s), h('small', { className: 'mono', text: ` / ${formatMinutes(res.data.daily_s)}` }));
+      meter.replaceChildren(quotaMeter(res.data));
+    });
+  refreshQuota();
+  // The quota is spent from YouTube (heartbeats every ~15 s): keep the meter live.
+  const quotaTimer = window.setInterval(() => {
+    if (!meter.isConnected && !quota.el.isConnected) return window.clearInterval(quotaTimer);
+    if (document.visibilityState === 'visible') refreshQuota();
+  }, QUOTA_REFRESH_MS);
   void optionsApi.liveSettings().then((res) => {
     if (res.ok) judge.value.replaceChildren(res.data.judge, h('small', { className: 'mono', text: ` ${t('dashboard.judgeConfig', { config: res.data.config })}` }));
   });
@@ -76,7 +86,7 @@ export function renderDashboard(setup: SetupState, policy: PolicyOut | null): HT
       h('div', { className: 'stat-grid' }, ...stats.map((s) => s.el)),
     ),
     meter,
-    h('div', { className: 'tools dashboard-cards' }, new ProtectionCard().element, new LockCard().element),
+    h('div', { className: 'tools dashboard-cards' }, new ProtectionCard().element, new LockCard().element, new LayersCard().element),
     h(
       'nav',
       { className: 'reopen', attrs: { 'aria-label': t('dashboard.reopen') } },

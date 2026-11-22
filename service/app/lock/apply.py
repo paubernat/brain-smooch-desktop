@@ -32,6 +32,7 @@ def _apply(ctx: AppState, kind: RequestKind, payload: dict[str, Any], base: int 
             saved = ctx.policies.save(content, expected_version=base)
             refs = [FeedbackRef.model_validate(r) for r in payload.get("incorporate", [])]
             mark_incorporated(ctx.database, refs, saved.version)
+            ctx.enforce.notify_policy_changed()
         case "live":
             save_live_settings(ctx.database, LiveSettings.model_validate(payload))
         case "enforcement":

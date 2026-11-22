@@ -1,7 +1,7 @@
 # Política de decisión (PLAN §8). Editable a mano o desde «Configura tu perfil» en la
 # extensión. Cada guardado sube `version`; las anteriores quedan en policy/history/.
-version: 14
-model_version: 13
+version: 16
+model_version: 15
 question:
   id: tier
   type: choice
@@ -17,8 +17,8 @@ question:
         y maratones de gameplay de canales listados. Deportes de cualquier tipo, con highlights o análisis
         (NBA, tenis de mesa, disc golf, escalada). Política de actualidad: noticias del día, campañas,
         elecciones, debates, discursos, rankings de candidatos y comentario partidista (laSexta, El País,
-        WSJ, Sanders, HasanAbi). Shorts de relleno, clips virales, sketches, humor con IA, retos, memes,
-        listas sensacionalistas. Música tangencial.
+        WSJ, Sanders, HasanAbi). Shorts excepto los de teoría de jazz, clips virales, sketches, humor
+        con IA, retos, memes, listas sensacionalistas. Música tangencial.
     LIMITADO:
       description: >-
         Entretenimiento largo con cupo: commentary, humor, vlogs, podcasts y shows de creadores aceptados

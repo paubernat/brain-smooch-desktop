@@ -86,6 +86,7 @@ async def put_policy(body: PolicyUpdate, request: Request, ctx: Ctx) -> PolicyOu
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except (yaml.YAMLError, ValidationError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=f"invalid policy: {exc}") from exc
+    ctx.enforce.notify_policy_changed()  # blocked_sites -> Firefox/Edge/Chrome/hosts layers
     incorporated = mark_incorporated(ctx.database, body.incorporate, saved.version)
     return _policy_out(ctx).model_copy(update={"incorporated": incorporated})
 

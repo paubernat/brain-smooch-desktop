@@ -7,6 +7,7 @@ from fastapi import Request
 
 from app import db
 from app.config import Settings
+from app.enforce.manager import EnforceManager
 from app.enrich.channel import ChannelEnricher
 from app.enrich.pipeline import EnrichmentPipeline
 from app.live_judge import LiveJudge
@@ -28,6 +29,7 @@ class AppState:
     quota: QuotaTracker
     lock: LockGuard
     login_limiter: LoginLimiter
+    enforce: EnforceManager
 
 
 def get_ctx(request: Request) -> AppState:

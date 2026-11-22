@@ -17,6 +17,8 @@ import { countsQuota, gateReducer, gateVideoId, INITIAL_GATE, type FailureReason
 import { overlayModel } from './overlay-model';
 import { PlayerHold, progress, seekTo } from './player';
 import { QuotaClock, TICK_MS } from './quota-clock';
+import { QuotaCountdown } from './quota-countdown';
+import { QuotaPill } from './quota-pill';
 import { ENFORCEMENT_KEY, parseEnforcement } from './settings';
 
 export interface GateHooks {
@@ -40,6 +42,10 @@ export class Gate {
   private decisionTimer: number | undefined;
   private ticker: number | undefined;
   private readonly clock = new QuotaClock();
+  /** Visible countdown on LIMITADO videos, re-synced by every quota answer. */
+  private readonly countdown = new QuotaCountdown();
+  private readonly pill = new QuotaPill();
+  private syncedQuota: QuotaToday | null = null;
   private resumedVideo: string | null = null;
   /** Last verdict answer, re-applied if the gate restarts for the same video. */
   private lastVerdict: { videoId: string; res: ApiResult<LiveVerdict> } | null = null;
@@ -148,7 +154,24 @@ export class Gate {
       if (countsQuota(before)) void this.flush(gateVideoId(before));
       this.stopTicker();
     }
+    this.renderCountdown();
     this.hooks.onQuota(state.kind === 'playing' && state.limited ? state.quota : state.kind === 'blocked' ? state.quota : null);
+  }
+
+  /** The pill shows while a LIMITADO video may play; each new quota answer re-syncs it. */
+  private renderCountdown(): void {
+    const state = this.state;
+    if (state.kind !== 'playing' || !state.limited || !state.quota) {
+      this.syncedQuota = null;
+      this.countdown.reset();
+      this.pill.render(null, false);
+      return;
+    }
+    if (state.quota !== this.syncedQuota) {
+      this.syncedQuota = state.quota;
+      this.countdown.sync(state.quota);
+    }
+    this.pill.render(this.countdown.remaining, this.countdown.grace);
   }
 
   /** Long video cut on a previous day: jump to where it stopped (once). */
@@ -165,7 +188,13 @@ export class Gate {
     this.ticker = window.setInterval(() => {
       const state = this.state;
       if (!countsQuota(state) || state.kind !== 'playing') return;
-      const due = this.clock.tick(Date.now(), progress().playing, document.visibilityState === 'visible');
+      const now = Date.now();
+      const playing = progress().playing;
+      const visible = document.visibilityState === 'visible';
+      // Heartbeats and the countdown count the same time: playing in the visible tab.
+      const due = this.clock.tick(now, playing, visible);
+      this.countdown.tick(now, playing && visible);
+      this.renderCountdown();
       if (due) void this.flush(state.videoId);
     }, TICK_MS);
   }

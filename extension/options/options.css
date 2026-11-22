@@ -606,3 +606,19 @@ table.errors a:hover, .pending-list a:hover { color: var(--green); }
   .kit-sheet .eyebrow::before { display: none; }
   .kit-line-blank { border-bottom-color: #000; }
 }
+
+/* "Layers" card (dashboard): Windows enforcement layers E1-E9 and their events. */
+.layer-list { list-style: none; margin: 12px 0 6px; padding: 0; display: grid; gap: 6px; }
+.layer-row { display: grid; grid-template-columns: 1.4em 2.4em 1fr auto; align-items: baseline; gap: 4px 10px; padding: 8px 10px; border: 1px solid var(--line); background: var(--surface); }
+.layer-row .layer-mark { font-weight: 700; text-align: center; }
+.layer-row .layer-detail { grid-column: 3 / -1; overflow-wrap: anywhere; }
+.layer-row.status-ok .layer-mark, .layer-row.status-ok .layer-status { color: var(--green); }
+.layer-row.status-missing { border-color: var(--red); }
+.layer-row.status-missing .layer-mark, .layer-row.status-missing .layer-status { color: var(--red); }
+.layer-row.status-pending .layer-mark, .layer-row.status-pending .layer-status { color: var(--muted); }
+.layer-row.status-requires_admin .layer-mark, .layer-row.status-requires_admin .layer-status { color: var(--orange); }
+.layer-event-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 14px; }
+.layer-events ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.layer-event { display: grid; gap: 2px; padding-left: 10px; border-left: 2px solid var(--line); overflow-wrap: anywhere; }
+.layer-event.kind-tamper, .layer-event.kind-error { border-left-color: var(--red); }
+.layer-event.kind-browser_closed { border-left-color: var(--orange); }
