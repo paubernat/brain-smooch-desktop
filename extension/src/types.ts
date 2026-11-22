@@ -208,13 +208,11 @@ export interface FeedbackItem {
   labeled_at: string;
 }
 
-/** Pending labels: only the dev split feeds a policy refresh; test is shown as info. */
+/** Pending labels (both splits) that feed a policy refresh. */
 export interface FeedbackSummary {
-  split: 'dev';
   pending: number;
   by_label: Record<Label, number>;
   with_reason: number;
-  pending_test: number;
   hint_threshold: number;
   items: FeedbackItem[];
 }

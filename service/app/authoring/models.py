@@ -68,7 +68,7 @@ class FeedbackRef(BaseModel):
 
 
 class FeedbackExample(FeedbackRef):
-    """Etiqueta del split dev pendiente de incorporar, con la ficha resumida y el motivo."""
+    """Etiqueta pendiente de incorporar (de cualquier split), con la ficha resumida y el motivo."""
 
     label: Label
     reason: str | None = None

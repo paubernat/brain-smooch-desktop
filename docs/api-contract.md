@@ -182,7 +182,7 @@ Los usa la web local (onboarding y panel, antes la página de opciones de la ext
 `policy_version` = `<model_version>-<sha256[:8]>` es la clave de la caché de veredictos. El hash cubre **solo lo que lee el modelo** (pregunta: id, instrucciones y descripciones de las opciones; preguntas auxiliares), en JSON canónico sin espacios extremos: ni `channel_lists`, ni `blocked_sites`, ni `rules`, ni comentarios o formato del YAML lo cambian. `model_version` (campo del YAML, lo escribe el guardado) es la versión en la que cambió por última vez esa parte; un fichero sin él usa `version`. Así, guardar listas o webs sube `version` pero conserva `policy_version` y la caché. Al arrancar, el servicio renombra una vez las claves antiguas (`<version>-<hash del fichero entero>`) de la política actual y de `policy/history/` (`app/policy_migration.py`); los candidatos evaluados que nunca se guardaron quedan sin migrar.
 
 ### `PUT /policy`
-Cuerpo: exactamente uno de `{"content": PolicyContent}` o `{"yaml": "..."}` (modo avanzado; su `version` se ignora), más `"expected_version"` opcional y `"incorporate": [{"video_id": "...", "labeled_at": "..."}]` opcional (el `feedback` de `POST /policy/refresh`: esas etiquetas se marcan como incorporadas con la versión nueva; solo cuentan las del split dev cuyo `labeled_at` no haya cambiado).
+Cuerpo: exactamente uno de `{"content": PolicyContent}` o `{"yaml": "..."}` (modo avanzado; su `version` se ignora), más `"expected_version"` opcional y `"incorporate": [{"video_id": "...", "labeled_at": "..."}]` opcional (el `feedback` de `POST /policy/refresh`: esas etiquetas se marcan como incorporadas con la versión nueva; solo cuentan las de `labeled_at` sin cambios).
 Respuesta: como `GET /policy` más `"incorporated": N`.
 - Sube `version`, archiva la anterior en `policy/history/v<N>.yaml` y escribe de forma atómica. Antes de escribir valida con el modelo `Policy` y comprueba el round-trip; las claves `NO`/`LIBRE` (y valores como `no`) van entre comillas.
 - `200` con lo mismo que `GET /policy`. `409` si `expected_version` no coincide con la versión en disco. `422` si el YAML o el contenido no son válidos.
@@ -226,21 +226,21 @@ Respuesta: como `/policy/draft` más `"changelog": ["..."]`. `422` si no queda n
 Respuesta: `{"content": PolicyContent, "changelog": "una frase", "usage": {...}}`. `422` si la instrucción está vacía, `503` sin clave, `502` si Claude falla.
 
 ### Recalibración: `GET /policy/feedback` y `POST /policy/refresh`
-Cada etiqueta (con su «motivo») queda **pendiente** hasta que se incorpora a la política (tabla `policy_feedback`; re-etiquetar un vídeo lo vuelve a dejar pendiente). Solo el split **dev** alimenta la recalibración; las pendientes de test solo se cuentan.
+Cada etiqueta (con su «motivo») queda **pendiente** hasta que se incorpora a la política (tabla `policy_feedback`; re-etiquetar un vídeo lo vuelve a dejar pendiente). Se usan **todas** las pendientes y sus motivos, de ambos splits (el split solo importa a la ablación).
 
 `GET /policy/feedback` (`?items=false` omite la lista; lo usa el panel):
 ```json
 {
-  "split": "dev", "pending": 12, "by_label": {"NO": 8, "LIMITADO": 3, "LIBRE": 1},
-  "with_reason": 2, "pending_test": 7, "hint_threshold": 20,
+  "pending": 12, "by_label": {"NO": 8, "LIMITADO": 3, "LIBRE": 1},
+  "with_reason": 2, "hint_threshold": 20,
   "items": [{"video_id": "...", "title": "...", "channel": "...", "label": "LIMITADO",
              "reason": "añade este canal a los limitados", "is_short": false, "labeled_at": "..."}]
 }
 ```
-`items`: solo dev, más recientes primero.
+`items`: ambos splits, más recientes primero.
 
-`POST /policy/refresh` `{"config": "D", "instruction": "sé más estricto con los vídeos de reacción"}` (ambos opcionales; `config`: niveles de la ficha que se resumen; `instruction`: indicación libre del usuario, ≤ 2000 caracteres, que Claude trata como orden explícita con prioridad alta, por encima de las etiquetas) → Claude propone una política revisada a partir de la vigente, de la indicación y de las etiquetas dev pendientes (como mucho 60: primero las que tienen motivo, que se tratan como criterios explícitos; luego las más recientes). No guarda. La indicación sola no basta: sin pendientes dev sigue siendo `422` (para editar sin etiquetas, `POST /policy/edit`).
-Respuesta: como `/policy/refine` más `"base_version": 3` y `"feedback": [{"video_id": "...", "labeled_at": "..."}]` (lo que hay que mandar en `incorporate` al guardar). `422` si no hay pendientes dev.
+`POST /policy/refresh` `{"config": "D", "instruction": "sé más estricto con los vídeos de reacción"}` (ambos opcionales; `config`: niveles de la ficha que se resumen; `instruction`: indicación libre del usuario, ≤ 2000 caracteres, que Claude trata como orden explícita con prioridad alta, por encima de las etiquetas) → Claude propone una política revisada a partir de la vigente, de la indicación y de las etiquetas pendientes de ambos splits (como mucho 60: primero las que tienen motivo, que se tratan como criterios explícitos; luego las más recientes). No guarda. La indicación sola no basta: sin pendientes sigue siendo `422` (para editar sin etiquetas, `POST /policy/edit`).
+Respuesta: como `/policy/refine` más `"base_version": 3` y `"feedback": [{"video_id": "...", "labeled_at": "..."}]` (lo que hay que mandar en `incorporate` al guardar). `422` si no hay pendientes.
 
 ### `GET /judges`
 ```json

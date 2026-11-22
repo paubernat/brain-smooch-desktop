@@ -26,7 +26,7 @@ export interface PanelHandlers {
   onChannelTier?: (label: Label) => void;
 }
 
-/** Labels not yet incorporated into the policy (dev split only). */
+/** Labels not yet incorporated into the policy (both splits). */
 export interface PendingFeedback {
   pending: number;
   threshold: number;
@@ -272,7 +272,7 @@ export class LabelPanel {
     const pending = feedback?.pending ?? 0;
     this.badgeEl.classList.toggle('hidden', pending === 0);
     this.badgeEl.textContent = String(pending);
-    this.badgeEl.title = `${pending} etiquetas pendientes de incorporar a la política (split dev)`;
+    this.badgeEl.title = `${pending} etiquetas pendientes de incorporar a la política`;
     const hint = feedback !== null && pending >= feedback.threshold;
     this.calibrationEl.classList.toggle('hidden', !hint);
     this.calibrationEl.textContent = `Refresca tu política (${pending} pendientes)`;

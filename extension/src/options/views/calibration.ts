@@ -4,7 +4,7 @@
 // single instruction to the saved policy, or to the open proposal. Either way
 // the result is shown as a diff + changelog; accepting saves it (new version,
 // through the lock: relaxing needs the admin session), marks the labels used
-// as incorporated and sends a pulse through the statues. Only the dev split is used.
+// as incorporated and sends a pulse through the statues. Labels from both splits are used.
 import { optionsApi } from '../api';
 import { AiEditBox, type AiEditChange } from '../components/ai-edit';
 import { corners } from '../components/frame';
@@ -112,12 +112,12 @@ export class CalibrationCard {
   }
 
   private async load(): Promise<void> {
-    show(this.summarySlot, spinner(t('calibration.counting')));
+    show(this.summarySlot, spinner(t('calibration.counting')), this.actions());
     const [res, policy] = await Promise.all([optionsApi.feedback(), optionsApi.getPolicy()]);
     if (policy.ok) this.current = policy.data;
     this.aiEdit.trigger.disabled = this.current === null;
     if (!res.ok) {
-      show(this.summarySlot, errorNotice(res.error, res.status, t('calibration.cannotRead')));
+      show(this.summarySlot, errorNotice(res.error, res.status, t('calibration.cannotRead')), this.actions());
       return;
     }
     this.renderSummary(res.data);
@@ -129,11 +129,7 @@ export class CalibrationCard {
     const refresh = button(t('calibration.refresh'), () => void withBusy(refresh, t('calibration.refreshing'), () => this.refresh()), 'primary');
     refresh.disabled = f.pending === 0;
     const breakdown = TIER_ORDER.filter((l) => f.by_label[l] > 0).map((l) => pill(l, `${l} ${f.by_label[l]}`));
-    const summary = t('calibration.summary', {
-      withReason: t('calibration.withReason', { n: f.with_reason }),
-      pendingTest: tn(f.pending_test, 'calibration.pendingTest'),
-      devOnly: t('calibration.devOnly'),
-    });
+    const summary = t('calibration.withReason', { n: f.with_reason });
     show(
       this.summarySlot,
       h(
@@ -146,12 +142,17 @@ export class CalibrationCard {
           breakdown.length ? h('p', { className: 'pills' }, ...breakdown) : null,
           h('p', { className: 'muted small', text: summary }),
         ),
-        h('div', { className: 'calibration-actions' }, this.aiEdit.trigger, refresh),
+        this.actions(refresh),
       ),
       f.pending > 0 ? h('div', { className: 'calibration-instruction' }, field(t('calibration.instruction'), this.instruction, t('calibration.instructionHint'))) : null,
       f.pending >= f.hint_threshold ? notice('warn', t('calibration.hint', { n: f.pending })) : null,
       pendingList(f.items),
     );
+  }
+
+  /** The ✨ trigger is always shown (any pending count, with or without a proposal open). */
+  private actions(refresh?: HTMLButtonElement): HTMLElement {
+    return h('div', { className: 'calibration-actions' }, this.aiEdit.trigger, refresh ?? null);
   }
 
   /** What the ✨ box edits: the open proposal, else the saved policy. */

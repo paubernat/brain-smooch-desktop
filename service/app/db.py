@@ -542,10 +542,9 @@ def pending_labels(conn: sqlite3.Connection) -> list[PendingLabel]:
 def mark_labels_incorporated(
     conn: sqlite3.Connection, refs: Iterable[tuple[str, str]], policy_version: int
 ) -> int:
-    """Marca como incorporadas las etiquetas `(video_id, labeled_at)` del split dev.
+    """Marca como incorporadas las etiquetas `(video_id, labeled_at)` (de ambos splits).
 
-    Solo cuenta si la etiqueta no ha cambiado desde que se mandó a Claude (mismo `labeled_at`);
-    las del split test nunca se marcan (quedan para la ablación final).
+    Solo cuenta si la etiqueta no ha cambiado desde que se mandó a Claude (mismo `labeled_at`).
     """
     now = now_iso()
     marked = 0
@@ -553,7 +552,7 @@ def mark_labels_incorporated(
         cursor = conn.execute(
             "INSERT INTO policy_feedback (video_id, labeled_at, policy_version, incorporated_at) "
             "SELECT video_id, labeled_at, ?, ? FROM labels "
-            "WHERE video_id = ? AND labeled_at = ? AND split = 'dev' "
+            "WHERE video_id = ? AND labeled_at = ? "
             "ON CONFLICT(video_id) DO UPDATE SET labeled_at=excluded.labeled_at, "
             "policy_version=excluded.policy_version, incorporated_at=excluded.incorporated_at",
             (policy_version, now, video_id, labeled_at),

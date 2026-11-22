@@ -84,7 +84,7 @@ async def refresh_with_feedback(
     base_version: int,
     instruction: str | None = None,
 ) -> RefreshResult:
-    """Política revisada a partir de las etiquetas dev pendientes (motivos con peso alto) y,
+    """Política revisada a partir de las etiquetas pendientes (motivos con peso alto) y,
     si la hay, una indicación libre del usuario (prioridad alta).
 
     `feedback` lista exactamente las etiquetas enviadas: son las que se marcarán como
@@ -92,7 +92,7 @@ async def refresh_with_feedback(
     """
     selected = select_feedback(examples)
     if not selected:
-        raise ValueError("no pending dev labels to learn from")
+        raise ValueError("no pending labels to learn from")
     data, usage = await client.complete(
         prompts.REFRESH_SYSTEM,
         prompts.refresh_user_message(

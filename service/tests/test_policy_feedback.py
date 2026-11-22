@@ -38,19 +38,19 @@ def _database(client: TestClient) -> db.Database:
     return client.app.state.ctx.database  # type: ignore[attr-defined]
 
 
-def test_feedback_counts_dev_and_reports_test_apart(client: TestClient) -> None:
+def test_feedback_counts_both_splits(client: TestClient) -> None:
     body = client.get("/policy/feedback").json()
-    assert body["pending"] == N_DEV and body["pending_test"] == N_TEST
-    assert sum(body["by_label"].values()) == N_DEV
+    assert body["pending"] == N_DEV + N_TEST and "pending_test" not in body
+    assert sum(body["by_label"].values()) == N_DEV + N_TEST
     assert body["with_reason"] == 1 and body["hint_threshold"] == 20
     ids = [item["video_id"] for item in body["items"]]
-    assert all(i.startswith("dev-") for i in ids) and len(ids) == N_DEV
+    assert len(ids) == N_DEV + N_TEST and any(i.startswith("test-") for i in ids)
     reasons = {item["video_id"]: item["reason"] for item in body["items"]}
     assert reasons["dev-01"] == REASON
     assert client.get("/policy/feedback", params={"items": "false"}).json()["items"] == []
 
 
-def test_refresh_then_save_marks_dev_labels(client: TestClient, mock_net: respx.MockRouter) -> None:
+def test_refresh_then_save_marks_all_labels(client: TestClient, mock_net: respx.MockRouter) -> None:
     route = mock_net.post(ANTHROPIC_URL).mock(
         return_value=httpx.Response(200, json=anthropic_body(REFRESH_OUTPUT))
     )
@@ -62,11 +62,11 @@ def test_refresh_then_save_marks_dev_labels(client: TestClient, mock_net: respx.
     assert proposal["base_version"] == 3
     assert {ref["video_id"] for ref in proposal["feedback"]} == {
         f"dev-{i:02d}" for i in range(N_DEV)
-    }
+    } | {f"test-{i:02d}" for i in range(N_TEST)}
 
     request = json.loads(route.calls.last.request.content)
     prompt = request["messages"][0]["content"][0]["text"]
-    assert "test-" not in prompt  # el split test nunca llega a Claude
+    assert "test-00" in prompt  # el split test también se usa para recalibrar
     assert REASON in prompt
     assert prompt.index("con motivo") < prompt.index("sin motivo")
     assert "Fireship" in prompt  # la política vigente va con sus listas de canales
@@ -76,21 +76,20 @@ def test_refresh_then_save_marks_dev_labels(client: TestClient, mock_net: respx.
     # Alguien re-etiqueta un vídeo mientras se revisa la propuesta: ese queda pendiente.
     with _database(client).connect() as conn:
         db.upsert_label(conn, "dev-02", Label.NO, "cambio de opinión")
-    sneaky = [{"video_id": "test-00", "labeled_at": "x"}]
+    stale = [{"video_id": "dev-03", "labeled_at": "x"}]  # labeled_at que no coincide
     saved = client.put(
         "/policy",
         json={
             "content": proposal["content"],
             "expected_version": proposal["base_version"],
-            "incorporate": proposal["feedback"] + sneaky,
+            "incorporate": proposal["feedback"] + stale,
         },
     )
     assert saved.status_code == 200
-    assert saved.json()["version"] == 4 and saved.json()["incorporated"] == N_DEV - 1
+    assert saved.json()["version"] == 4 and saved.json()["incorporated"] == N_DEV + N_TEST - 1
 
     after = client.get("/policy/feedback").json()
     assert after["pending"] == 1 and after["items"][0]["video_id"] == "dev-02"
-    assert after["pending_test"] == N_TEST
     with _database(client).connect() as conn:
         versions = {r[0] for r in conn.execute("SELECT policy_version FROM policy_feedback")}
     assert versions == {4}
