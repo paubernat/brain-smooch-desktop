@@ -10,8 +10,15 @@ $Name = 'BrainSmooch'
 $WinSW = Join-Path $Root 'winsw\BrainSmooch.exe'
 $Log = Join-Path $Root 'logs\watchdog.log'
 
+$LogMaxBytes = 1MB
+
 function Write-Log([string]$Text) {
-    try { Add-Content -Path $Log -Value "$(Get-Date -Format o) $Text" -Encoding ascii } catch { }
+    try {
+        # Rotate at ~1 MB keeping one old file (watchdog.log.1), so it never grows unbounded.
+        $item = Get-Item -Path $Log -ErrorAction SilentlyContinue
+        if ($item -and $item.Length -ge $LogMaxBytes) { Move-Item -Force -Path $Log -Destination "$Log.1" }
+        Add-Content -Path $Log -Value "$(Get-Date -Format o) $Text" -Encoding ascii
+    } catch { }
 }
 
 try {

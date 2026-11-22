@@ -17,6 +17,7 @@ from app.state import AppState
 FIREFOX = Path(r"C:\Program Files\Mozilla Firefox")
 HOSTS = Path(r"C:\Windows\System32\drivers\etc\hosts")
 INSTALLER = REPO_ROOT / "installer" / "install.ps1"
+PASSWORD = "correct horse"
 
 
 @pytest.fixture
@@ -34,12 +35,24 @@ def client_for(settings: Settings, backend: FakeBackend) -> TestClient:
     return TestClient(create_app(settings, backend=backend))
 
 
+def set_password(client: TestClient) -> None:
+    setup = {"custodian": "Ana", "password": PASSWORD, "password_confirm": PASSWORD}
+    assert client.post("/lock/setup", json=setup).status_code == 200
+    client.post("/lock/logout")
+
+
 @pytest.fixture
-def prod_client(policy_settings: Settings, backend: FakeBackend) -> Iterator[TestClient]:
+def prod_nopw_client(policy_settings: Settings, backend: FakeBackend) -> Iterator[TestClient]:
     policy_settings.bs_production = True
     policy_settings.bs_enforce_layers = True
     with client_for(policy_settings, backend) as client:
         yield client
+
+
+@pytest.fixture
+def prod_client(prod_nopw_client: TestClient) -> TestClient:
+    set_password(prod_nopw_client)
+    return prod_nopw_client
 
 
 def ctx_of(client: TestClient) -> AppState:
@@ -75,11 +88,8 @@ def test_policy_change_wakes_layers(prod_client: TestClient, backend: FakeBacken
 
 def test_uninstall_requires_admin_session(prod_client: TestClient, backend: FakeBackend) -> None:
     prod_client.post("/system/apply")
-    setup = {"custodian": "Ana", "password": "correct horse", "password_confirm": "correct horse"}
-    assert prod_client.post("/lock/setup", json=setup).status_code == 200
-    prod_client.post("/lock/logout")
     assert prod_client.post("/system/uninstall").status_code == 401
-    session = prod_client.post("/lock/login", json={"password": "correct horse"}).json()
+    session = prod_client.post("/lock/login", json={"password": PASSWORD}).json()
     assert prod_client.post("/system/uninstall").status_code == 403  # no CSRF
     res = prod_client.post(
         "/system/uninstall", headers={"X-CSRF-Token": session["session"]["csrf"]}
@@ -88,6 +98,40 @@ def test_uninstall_requires_admin_session(prod_client: TestClient, backend: Fake
     assert res.json()["removed"] == ["E6", "E5", "E4"]
     assert backend.file_text(HOSTS) == "127.0.0.1 localhost\r\n"
     assert prod_client.get("/system/layers").json()["suspended"] is True
+
+
+def test_apply_and_uninstall_need_an_app_password(prod_nopw_client: TestClient) -> None:
+    for path in ("/system/apply", "/system/uninstall"):
+        res = prod_nopw_client.post(path)
+        assert res.status_code == 409
+        assert "no app password" in res.json()["detail"]
+    assert prod_nopw_client.get("/system/layers").json()["suspended"] is False
+
+
+@pytest.mark.parametrize(
+    "origin", ["https://evil.example", "null", "http://127.0.0.1:9999", "http://localhost.evil"]
+)
+def test_cross_site_writes_are_refused(prod_client: TestClient, origin: str) -> None:
+    prod_client.post("/system/apply")
+    session = prod_client.post("/lock/login", json={"password": PASSWORD}).json()
+    res = prod_client.post(
+        "/system/uninstall",
+        headers={"Origin": origin, "X-CSRF-Token": session["session"]["csrf"]},
+    )
+    assert res.status_code == 403
+    assert prod_client.get("/system/layers").json()["suspended"] is False
+    # Reads stay open (the extension's GETs carry an Origin too).
+    assert prod_client.get("/system/layers", headers={"Origin": origin}).status_code == 200
+
+
+@pytest.mark.parametrize(
+    "origin", [None, "http://127.0.0.1:8765", "http://localhost:8765", "moz-extension://abc"]
+)
+def test_local_and_extension_writes_are_allowed(
+    prod_client: TestClient, origin: str | None
+) -> None:
+    headers = {"Origin": origin} if origin else {}
+    assert prod_client.post("/system/apply", headers=headers).status_code == 200
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows PowerShell")

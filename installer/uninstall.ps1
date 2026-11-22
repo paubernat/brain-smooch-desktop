@@ -64,14 +64,20 @@ if ($script:BsDryRun) {
         $csrf = $login.session.csrf
         Write-Ok 'Contraseña correcta.'
     } else {
-        Write-Warn 'No hay contraseña creada en la app: se continúa sin ella.'
+        # El servicio rechaza /system/uninstall sin contraseña (409): no borrar nada a medias.
+        Write-Fail "La app no tiene contraseña: créala en $BsBaseUrl/ o usa teardown.ps1. No se ha cambiado nada."
+        exit 1
     }
     Confirm-Typed 'Se desinstalará Brain Smooch y se quitarán todas sus capas.' 'DESINSTALAR'
 }
 
 Write-Step '2' "Watchdog '$BsTaskName'  [E3]"
 if (Get-ScheduledTask -TaskName $BsTaskName -ErrorAction SilentlyContinue) {
-    Invoke-Change "Borrar la tarea $BsTaskName" { Unregister-ScheduledTask -TaskName $BsTaskName -Confirm:$false }
+    Invoke-Change "Parar y borrar la tarea $BsTaskName" {
+        # Parar una ejecución en curso: podría volver a arrancar el servicio.
+        Stop-ScheduledTask -TaskName $BsTaskName -ErrorAction SilentlyContinue
+        Unregister-ScheduledTask -TaskName $BsTaskName -Confirm:$false
+    }
 } else { Write-Info 'No existe.' }
 
 Write-Step '3' 'Retirar capas desde el servicio (E6 hosts, E5 Edge/Chrome, E4 Firefox)'

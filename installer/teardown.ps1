@@ -78,41 +78,63 @@ if (-not $DryRun -and -not $Yes) {
 
 Step 'E3 watchdog'
 if (Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue) {
-    Change "Borrar la tarea programada $TaskName" { Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false }
+    Change "Parar y borrar la tarea programada $TaskName" {
+        # Parar primero una ejecución en curso: podría reinstalar/arrancar el servicio que se
+        # borra justo después.
+        Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+        Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
+    }
 } else { Info 'No existe.' }
 
 Step 'E2 servicio'
 $service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
 if ($service) {
     Change "Parar y borrar el servicio $ServiceName" {
-        if ($service.Status -ne 'Stopped') { Stop-Service -Name $ServiceName -Force }
+        # Si no para a tiempo, seguir igualmente: lo importante es borrar el registro del servicio.
+        if ($service.Status -ne 'Stopped') {
+            try { Stop-Service -Name $ServiceName -Force } catch { Write-Host "   !!  $($_.Exception.Message)" -ForegroundColor Yellow }
+        }
         $winsw = Join-Path $Root 'winsw\BrainSmooch.exe'
         if (Test-Path $winsw) { & $winsw uninstall | Out-Null }
         if (Get-Service -Name $ServiceName -ErrorAction SilentlyContinue) { & sc.exe delete $ServiceName | Out-Null }
     }
 } else { Info 'No existe.' }
-$venv = Join-Path $Root 'venv'
-$leftovers = @(Get-Process -Name python* -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path.StartsWith($venv, 'OrdinalIgnoreCase') })
+# Todo $Root, no solo venv\: el python.exe del venv es un lanzador y el intérprete real
+# (proceso hijo) se ejecuta desde $Root\python\. También WinSW (winsw\BrainSmooch.exe).
+$rootPrefix = $Root.TrimEnd('\') + '\'
+$leftovers = @(Get-Process -ErrorAction SilentlyContinue | Where-Object {
+        try { $_.Path -and $_.Path.StartsWith($rootPrefix, 'OrdinalIgnoreCase') } catch { $false } })
 if ($leftovers.Count -gt 0) {
-    Change "Cerrar $($leftovers.Count) proceso(s) de Python del servicio" { $leftovers | Stop-Process -Force }
+    Change "Cerrar $($leftovers.Count) proceso(s) del servicio que siguen vivos en $Root" { $leftovers | Stop-Process -Force }
 }
 
 Step 'E6 hosts'
-$hostsText = if (Test-Path $Hosts) { [IO.File]::ReadAllText($Hosts) } else { '' }
+# Latin-1 lee y escribe cada byte tal cual: lo que está fuera del bloque no cambia (ASCII lo
+# convertiría en '?').
+$Latin1 = [Text.Encoding]::GetEncoding(28591)
+$hostsText = if (Test-Path $Hosts) { [IO.File]::ReadAllText($Hosts, $Latin1) } else { '' }
 if ($hostsText.Contains($HostsBegin)) {
     Change "Quitar el bloque $HostsBegin ... $HostsEnd" {
+        # Igual que hosts.py: BEGIN..END entero; sin END, solo nuestras líneas tras BEGIN.
+        $lines = @($hostsText -split "`r?`n")
         $out = New-Object System.Collections.Generic.List[string]
-        $inside = $false
-        foreach ($line in ($hostsText -split "`r?`n")) {
-            $trim = $line.Trim()
-            if ($trim.StartsWith($HostsBegin)) { $inside = $true; continue }
-            if ($inside -and $trim -eq $HostsEnd) { $inside = $false; continue }
-            if ($inside -and $trim -match '^(0\.0\.0\.0|::)\s+\S+$') { continue }
-            $inside = $false
-            $out.Add($line)
+        $i = 0
+        while ($i -lt $lines.Count) {
+            if ($lines[$i].Trim().StartsWith($HostsBegin)) {
+                $end = -1
+                for ($j = $i + 1; $j -lt $lines.Count; $j++) { if ($lines[$j].Trim() -eq $HostsEnd) { $end = $j; break } }
+                if ($end -ge 0) { $i = $end + 1 }
+                else {
+                    $i++
+                    while ($i -lt $lines.Count -and $lines[$i].Trim() -match '^(0\.0\.0\.0|::)\s+\S+$') { $i++ }
+                }
+                continue
+            }
+            $out.Add($lines[$i])
+            $i++
         }
         while ($out.Count -gt 0 -and $out[$out.Count - 1] -eq '') { $out.RemoveAt($out.Count - 1) }
-        [IO.File]::WriteAllText($Hosts, (($out -join "`r`n") + "`r`n"), (New-Object Text.ASCIIEncoding))
+        [IO.File]::WriteAllText($Hosts, (($out -join "`r`n") + "`r`n"), $Latin1)
         & ipconfig.exe /flushdns | Out-Null
     }
 } else { Info 'Sin bloque BrainSmooch.' }
@@ -151,6 +173,9 @@ if (Test-Path $FirefoxPolicies) {
     } elseif ($ours) {
         Change "Borrar $FirefoxPolicies" { Remove-Item -Force $FirefoxPolicies }
     } else { Info 'policies.json no es de Brain Smooch: se deja.' }
+} elseif (Test-Path $FirefoxBackup) {
+    # Sin policies.json pero con la copia del original: devolver el original.
+    Change 'Restaurar el policies.json anterior a Brain Smooch' { Move-Item -Force $FirefoxBackup $FirefoxPolicies }
 } else { Info 'No hay policies.json.' }
 
 Step "Archivos en $Root"

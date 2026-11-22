@@ -34,6 +34,7 @@ from app.lock.rate_limit import LoginLimiter
 from app.lock.requests import RelaxRequestStore
 from app.lock.sessions import SessionManager
 from app.models import FichaIn, FichaOut, LabelIn, LabelOut, Stats
+from app.origin_guard import OriginGuardMiddleware
 from app.policy_migration import migrate_verdict_keys
 from app.policy_store import PolicyStore
 from app.quota.tracker import QuotaTracker
@@ -137,6 +138,8 @@ def create_app(settings: Settings | None = None, backend: LayerBackend | None = 
         allow_methods=["GET", "POST", "PUT", "OPTIONS"],
         allow_headers=["Content-Type"],
     )
+    # Added last = outermost: cross-site POSTs are refused before CORS or any route runs.
+    app.add_middleware(OriginGuardMiddleware, port=settings.service_port)
     app.add_exception_handler(RelaxDeferred, _relax_deferred)
     _register_routes(app)
     app.include_router(policy_routes.router)

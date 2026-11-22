@@ -128,6 +128,9 @@ function Invoke-Directories {
     Invoke-Change "ACL de $BsRoot : SYSTEM y Administradores control total, Usuarios solo lectura" {
         Invoke-Native icacls.exe @($BsRoot, '/inheritance:r', '/grant:r',
             "*$($SidSystem):(OI)(CI)F", "*$($SidAdministrators):(OI)(CI)F", "*$($SidUsers):(OI)(CI)RX", '/T', '/C', '/Q')
+        # El /T anterior también da lectura a Usuarios en un secrets.env existente: cerrarlo ya.
+        $existingSecrets = Join-Path $BsRoot 'secrets.env'
+        if (Test-Path $existingSecrets) { Protect-Secrets $existingSecrets }
     }
 }
 
@@ -183,8 +186,37 @@ function Invoke-CopyFiles([System.IO.FileInfo]$Xpi) {
                 if ($SecretKeys -contains $name) { $lines += $line }
             }
         }
+        # Restringir ANTES de escribir las claves (el archivo nunca las tiene con ACL abierta).
+        if (-not (Test-Path $secrets)) { New-Item -ItemType File -Path $secrets | Out-Null }
+        Protect-Secrets $secrets
         Set-Content -Encoding ascii -Path $secrets -Value $lines
-        Invoke-Native icacls.exe @($secrets, '/inheritance:r', '/grant:r', "*$($SidSystem):F", "*$($SidAdministrators):F", '/Q')
+    }
+}
+
+function Protect-Secrets([string]$Path) {
+    <# Solo SYSTEM y Administradores. /reset primero: el `icacls /T /grant:r Usuarios` del paso 2
+       deja un ACE EXPLÍCITO de Usuarios en un secrets.env ya existente (reinstalación), y
+       `/inheritance:r` solo quita los heredados. #>
+    Invoke-Native icacls.exe @($Path, '/reset', '/Q')
+    Invoke-Native icacls.exe @($Path, '/inheritance:r', '/grant:r', "*$($SidSystem):F", "*$($SidAdministrators):F", '/Q')
+}
+
+function Suspend-ExistingInstall {
+    <# Reinstalación: pausar el watchdog y parar el servicio ANTES de copiar y de `uv sync`
+       (con el servicio en marcha, python.exe y las .pyd del venv están bloqueadas y el
+       watchdog lo volvería a arrancar). El paso 6 vuelve a registrar la tarea habilitada. #>
+    $task = Get-ScheduledTask -TaskName $BsTaskName -ErrorAction SilentlyContinue
+    $service = Get-Service -Name $BsServiceName -ErrorAction SilentlyContinue
+    if (-not $task -and -not $service) { return }
+    Write-Step '2b' 'Reinstalación: pausar watchdog y parar el servicio'
+    if ($task) {
+        Invoke-Change "Deshabilitar la tarea $BsTaskName (se reactiva en el paso 6)" {
+            Stop-ScheduledTask -TaskName $BsTaskName -ErrorAction SilentlyContinue
+            Disable-ScheduledTask -TaskName $BsTaskName | Out-Null
+        }
+    }
+    if ($service -and $service.Status -ne 'Stopped') {
+        Invoke-Change "Parar el servicio $BsServiceName" { Stop-Service -Name $BsServiceName -Force }
     }
 }
 
@@ -252,8 +284,15 @@ function Invoke-StartAndApply {
         Start-Service -Name $BsServiceName
         if (-not (Wait-ServiceHealth 120)) { throw 'El servicio no responde en /health (mira C:\ProgramData\BrainSmooch\logs).' }
     }
-    Invoke-Change 'POST /system/apply (endurecer: no pide contraseña)' {
-        Invoke-RestMethod -Method Post -Uri "$BsBaseUrl/system/apply" -TimeoutSec 60 -UseBasicParsing | Out-Null
+    # /system/apply exige que exista la contraseña de la app (409 si no): comprobarla antes.
+    Invoke-Change 'Comprobar la contraseña de la app y POST /system/apply (endurecer)' {
+        $lock = Invoke-RestMethod -Uri "$BsBaseUrl/lock/status" -TimeoutSec 15 -UseBasicParsing
+        if ($lock.password_set) {
+            Invoke-RestMethod -Method Post -Uri "$BsBaseUrl/system/apply" -TimeoutSec 60 -UseBasicParsing | Out-Null
+        } else {
+            Write-Warn 'La app NO tiene contraseña: sin ella /system/apply y la desinstalación están bloqueadas.'
+            Write-Warn "Créala ahora en $BsBaseUrl/ (onboarding) y vuelve a ejecutar el instalador."
+        }
     }
     if (-not $script:BsDryRun) { Show-Layers }
 }
@@ -384,6 +423,7 @@ if ($Accounts) {
         Confirm-Typed "Se instalará Brain Smooch en $BsRoot como servicio de Windows con sus capas de bloqueo." 'INSTALAR'
     }
     Invoke-Directories
+    Suspend-ExistingInstall
     Invoke-CopyFiles $xpi
     Invoke-PythonEnv
     Invoke-Service
