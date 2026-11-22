@@ -4,7 +4,7 @@ import { ALLOWED_PATHS, isApiRequest, timeoutFor } from '../src/api-messages';
 import { quotaTodayPath } from '../src/api';
 import { allowsPlayback, countsQuota, gateReducer, INITIAL_GATE, type GateEvent, type GateState } from '../src/enforce/gate-state';
 import { blockReason, overlayModel, START_COMMAND } from '../src/enforce/overlay-model';
-import { HEARTBEAT_MS, QuotaClock } from '../src/enforce/quota-clock';
+import { HEARTBEAT_MS, QuotaClock, quotaView } from '../src/enforce/quota-clock';
 import { formatMinutes, formatPosition, quotaLine, usedFraction } from '../src/enforce/quota-view';
 import { DEFAULT_ENFORCEMENT, parseEnforcement } from '../src/enforce/settings';
 import { isShortsScroll, NavTracker, navStep } from '../src/enforce/shorts-scroll';
@@ -173,23 +173,23 @@ describe('quota display', () => {
   it('computes the meter and the panel line', () => {
     expect(usedFraction({ used_s: 900, daily_s: 1800 })).toBe(0.5);
     expect(usedFraction({ used_s: 10, daily_s: 0 })).toBe(1);
-    expect(quotaLine(quota())).toBe('Cupo: quedan 20 min de 30 min');
-    expect(quotaLine(quota({ exhausted: true, remaining_s: 0 }))).toContain('agotado');
-    expect(quotaLine(quota({ video: { allowed: true, state: 'grace', grace_remaining_s: 420, resume_at_s: null } }))).toBe('Gracia para terminar: 7 min');
+    expect(quotaLine(quotaView(quota()))).toBe('Cupo: quedan 20:00 de 30 min');
+    expect(quotaLine(quotaView(quota({ exhausted: true, remaining_s: 0, video: null })))).toContain('agotado');
+    expect(quotaLine(quotaView(quota({ video: { allowed: true, state: 'grace', grace_remaining_s: 420, resume_at_s: null } })))).toBe('Gracia para terminar: 7:00');
   });
 
   it('counts only time played in a visible tab', () => {
     const clock = new QuotaClock();
     let now = 0;
-    clock.tick(now, true, true);
-    for (let i = 0; i < 5; i++) clock.tick((now += 1000), true, false); // hidden tab
-    for (let i = 0; i < 5; i++) clock.tick((now += 1000), false, true); // paused
+    clock.tick(now, true);
+    for (let i = 0; i < 5; i++) clock.tick((now += 1000), false); // hidden tab
+    for (let i = 0; i < 5; i++) clock.tick((now += 1000), false); // paused
     let due = false;
-    for (let i = 0; i < 6 && !due; i++) due = clock.tick((now += 1000), true, true);
+    for (let i = 0; i < 6 && !due; i++) due = clock.tick((now += 1000), true);
     expect(due).toBe(true);
-    expect(clock.take()).toBe(5); // 15 s elapsed, 5 of them playing and visible
-    expect(clock.tick((now += 60_000), true, true)).toBe(false); // a long gap counts as one tick at most
-    expect(clock.take()).toBe(2);
+    expect(clock.take()?.seconds).toBe(5); // 15 s elapsed, 5 of them playing and visible
+    expect(clock.tick((now += 60_000), true)).toBe(false); // a long gap counts as one tick at most
+    expect(clock.take()?.seconds).toBe(2);
     expect(HEARTBEAT_MS).toBe(15_000);
   });
 });

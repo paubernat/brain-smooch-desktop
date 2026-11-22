@@ -72,6 +72,9 @@ export interface QuotaHeartbeat {
   seconds: number;
   duration_s: number | null;
   position_s: number | null;
+  /** Tab id and increasing heartbeat number: the service ignores repeats and caps to wall time. */
+  tab_id?: string;
+  seq?: number;
 }
 
 export function quotaTodayPath(videoId: string, durationS: number | null, positionS: number | null): string {

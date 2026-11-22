@@ -7,7 +7,8 @@ empieza un cupo nuevo. Las reglas están en `rules.py`; aquí solo se leen y gua
 import sqlite3
 import threading
 from collections.abc import Callable
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import datetime, timedelta
 
 from pydantic import BaseModel
 
@@ -19,6 +20,11 @@ from app.settings_store import load_model, save_model
 SETTINGS_KEY = "quota"
 # Al retomar un vídeo largo, la posición guardada se da por consumida al pasar de aquí.
 RESUME_TOLERANCE_S = 5.0
+# Un latido de una pestaña no cuenta más que el tiempo real desde su latido anterior (más
+# este margen por el retraso de la red y del navegador).
+HEARTBEAT_SLACK_S = 1.0
+# Pestañas sin latidos desde hace más de esto se olvidan.
+TAB_TTL = timedelta(hours=1)
 
 Clock = Callable[[], datetime]
 
@@ -39,11 +45,47 @@ def local_day(now: datetime) -> str:
     return now.date().isoformat()
 
 
+@dataclass
+class _TabBeat:
+    """Último latido aceptado de una pestaña (en memoria: un reinicio solo pierde el tope)."""
+
+    at: datetime
+    seq: int | None
+
+
+class HeartbeatGuard:
+    """Hace el recuento idempotente por pestaña: descarta latidos repetidos o desordenados
+    (`seq` no creciente) y limita cada latido al tiempo real transcurrido desde el anterior
+    de esa pestaña, así dos emisores en la misma pestaña no cuentan el doble."""
+
+    def __init__(self) -> None:
+        self._tabs: dict[str, _TabBeat] = {}
+
+    def admit(self, now: datetime, tab_id: str | None, seq: int | None, seconds: float) -> float:
+        if tab_id is None:
+            return seconds  # cliente antiguo: solo el tope de `rules.MAX_HEARTBEAT_S`
+        last = self._tabs.get(tab_id)
+        if last is not None and seq is not None and last.seq is not None and seq <= last.seq:
+            return 0.0
+        if last is not None:
+            elapsed = max(0.0, (now - last.at).total_seconds())
+            seconds = min(seconds, elapsed + HEARTBEAT_SLACK_S)
+        self._tabs[tab_id] = _TabBeat(now, seq)
+        self._prune(now)
+        return seconds
+
+    def _prune(self, now: datetime) -> None:
+        stale = [tab for tab, beat in self._tabs.items() if now - beat.at > TAB_TTL]
+        for tab in stale:
+            del self._tabs[tab]
+
+
 class QuotaTracker:
     def __init__(self, database: db.Database, clock: Clock = datetime.now) -> None:
         self._db = database
         self._clock = clock
         self._lock = threading.Lock()  # latidos de varias pestañas a la vez
+        self._guard = HeartbeatGuard()
 
     def settings(self) -> QuotaSettings:
         return load_model(self._db, SETTINGS_KEY, QuotaSettings)
@@ -63,10 +105,19 @@ class QuotaTracker:
                 )
         return _today(day, daily_s, usage, status)
 
-    def heartbeat(self, video: VideoProgress, seconds: float) -> QuotaToday:
-        day = local_day(self._clock())
+    def heartbeat(
+        self,
+        video: VideoProgress,
+        seconds: float,
+        *,
+        tab_id: str | None = None,
+        seq: int | None = None,
+    ) -> QuotaToday:
+        now = self._clock()
+        day = local_day(now)
         daily_s = self.settings().daily_s
         with self._lock, self._db.connect() as conn:
+            seconds = self._guard.admit(now, tab_id, seq, seconds)
             usage, status = rules.heartbeat(_load_usage(conn, day), daily_s, video, seconds)
             _save_usage(conn, day, usage)
             _consume_resume(conn, day, video)

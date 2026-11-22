@@ -19,6 +19,10 @@ class HeartbeatIn(BaseModel):
     seconds: float = Field(ge=0, le=600)  # el servicio cuenta como mucho 30 s por latido
     duration_s: float | None = Field(default=None, ge=0)
     position_s: float | None = Field(default=None, ge=0)
+    # Pestaña que envía (id aleatorio por página) y número de latido creciente: el servicio
+    # descarta repetidos y no cuenta más tiempo que el transcurrido desde el anterior.
+    tab_id: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{8,64}$")
+    seq: int | None = Field(default=None, ge=0)
 
 
 @router.get("/quota/today", response_model=QuotaToday)
@@ -35,7 +39,7 @@ async def get_today(
 @router.post("/quota/heartbeat", response_model=QuotaToday)
 async def post_heartbeat(body: HeartbeatIn, ctx: Ctx) -> QuotaToday:
     video = VideoProgress(body.video_id, body.duration_s, body.position_s)
-    return ctx.quota.heartbeat(video, body.seconds)
+    return ctx.quota.heartbeat(video, body.seconds, tab_id=body.tab_id, seq=body.seq)
 
 
 @router.get("/settings/quota", response_model=QuotaSettings)

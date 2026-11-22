@@ -47,7 +47,19 @@ export function progress(): Progress {
   const video = mainVideo();
   if (!video) return { duration: null, position: null, playing: false };
   const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : null;
-  return { duration, position: Number.isFinite(video.currentTime) ? video.currentTime : null, playing: !video.paused && !video.ended };
+  return { duration, position: Number.isFinite(video.currentTime) ? video.currentTime : null, playing: isPlaying(video, adShowing()) };
+}
+
+const HAVE_FUTURE_DATA = 3;
+
+/** Time really advancing for the quota: not paused, ended, seeking or buffering, and no ad. */
+export function isPlaying(video: Pick<HTMLMediaElement, 'paused' | 'ended' | 'seeking' | 'readyState'>, ad: boolean): boolean {
+  return !video.paused && !video.ended && !video.seeking && video.readyState >= HAVE_FUTURE_DATA && !ad;
+}
+
+/** YouTube marks the player while an ad plays in the same <video>. */
+function adShowing(): boolean {
+  return document.querySelector('.html5-video-player.ad-showing') !== null;
 }
 
 export function seekTo(seconds: number): void {

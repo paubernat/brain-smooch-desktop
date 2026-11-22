@@ -1,10 +1,6 @@
-// Visible countdown of the LIMITADO quota (pure, unit-tested). The service is
-// the source of truth: every heartbeat answer re-syncs the remaining seconds;
-// in between, the pill counts down locally once per second, but only while
-// the video plays in the visible tab (the same time the heartbeat reports).
+// Countdown formatting shared by the pill and the label panel (pure, unit-tested).
+// The live value comes from the tab's single QuotaClock (quota-clock.ts).
 import type { QuotaToday } from '../types';
-
-const MAX_GAP_MS = 2000; // a throttled tab or a sleep counts as one tick at most
 
 /** 754 -> "12:34", 5 -> "0:05", 3725 -> "1:02:05". Rounds up: "0:00" only when nothing is left. */
 export function formatCountdown(seconds: number): string {
@@ -20,38 +16,4 @@ export function formatCountdown(seconds: number): string {
 export function remainingFor(quota: QuotaToday): { seconds: number; grace: boolean } {
   if (quota.video?.state === 'grace') return { seconds: quota.video.grace_remaining_s, grace: true };
   return { seconds: quota.remaining_s, grace: false };
-}
-
-export class QuotaCountdown {
-  private synced = 0;
-  private playedMs = 0;
-  private last: number | null = null;
-  grace = false;
-
-  /** New answer from the service (GET /quota/today or a heartbeat). */
-  sync(quota: QuotaToday): void {
-    const { seconds, grace } = remainingFor(quota);
-    this.synced = seconds;
-    this.grace = grace;
-    this.playedMs = 0;
-  }
-
-  /** Call every second; counts only while playing in a visible tab. */
-  tick(nowMs: number, counting: boolean): void {
-    const gap = this.last === null ? 0 : Math.min(Math.max(0, nowMs - this.last), MAX_GAP_MS);
-    this.last = nowMs;
-    if (counting) this.playedMs += gap;
-  }
-
-  reset(): void {
-    this.synced = 0;
-    this.playedMs = 0;
-    this.last = null;
-    this.grace = false;
-  }
-
-  /** Local estimate of the seconds left. */
-  get remaining(): number {
-    return Math.max(0, this.synced - this.playedMs / 1000);
-  }
 }

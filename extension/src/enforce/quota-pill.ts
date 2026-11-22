@@ -2,6 +2,7 @@
 // ("LIMITADO · 12:34 left"). Closed Shadow DOM, neon style; it does not take
 // clicks, so it never gets in the way of the player.
 import { t } from '../options/i18n';
+import type { QuotaView } from './quota-clock';
 import { formatCountdown } from './quota-countdown';
 
 const CSS = `
@@ -32,15 +33,15 @@ export class QuotaPill {
     root.append(style, this.pill);
   }
 
-  /** Seconds left (null hides the pill). */
-  render(seconds: number | null, grace: boolean): void {
-    if (seconds === null) {
+  /** View of the tab's QuotaClock (null hides the pill); same text source as the panel. */
+  render(view: QuotaView | null): void {
+    if (view === null) {
       this.host.remove();
       return;
     }
     if (!this.host.isConnected) document.documentElement.append(this.host);
-    const time = formatCountdown(seconds);
-    this.pill.textContent = grace ? t('quota.pillGrace', { time }) : t('quota.pill', { time });
-    this.pill.classList.toggle('low', seconds <= LOW_S);
+    const time = formatCountdown(view.seconds);
+    this.pill.textContent = view.grace ? t('quota.pillGrace', { time }) : t('quota.pill', { time });
+    this.pill.classList.toggle('low', view.seconds <= LOW_S);
   }
 }

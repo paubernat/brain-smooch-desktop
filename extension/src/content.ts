@@ -20,7 +20,7 @@ import { channelTier, withChannel } from './channel-lists';
 import { onBridgeNavigation, requestSnapshot } from './bridge-client';
 import { debugLog, dumpSpike, initDebug } from './debug';
 import { Gate } from './enforce/gate';
-import { quotaLine, usedFraction } from './enforce/quota-view';
+import { quotaLine } from './enforce/quota-view';
 import { NavTracker, navStep } from './enforce/shorts-scroll';
 import { buildFicha } from './extract/ficha';
 import { initLang, t } from './options/i18n';
@@ -60,7 +60,8 @@ function retryCurrent(): void {
 
 const gate = new Gate({
   onRetry: retryCurrent,
-  onQuota: (quota) => panel.setQuota(quota ? quotaLine(quota) : null, quota ? usedFraction(quota) : 0),
+  // Same QuotaClock view as the pill above the video: identical mm:ss, updated every second.
+  onQuota: (view) => panel.setQuota(view ? quotaLine(view) : null, view?.fraction ?? 0),
   onLabelled: (videoId) => {
     if (videoId !== panel.currentVideo()) return;
     void api.getFicha(videoId).then((res) => res.ok && res.data.video_id === panel.currentVideo() && applyFicha(res.data));

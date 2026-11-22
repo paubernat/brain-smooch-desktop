@@ -1,6 +1,8 @@
 // Quota meter texts (label panel, block overlay, dashboard). Pure, unit-tested.
 import { t } from '../options/i18n';
 import type { QuotaToday } from '../types';
+import type { QuotaView } from './quota-clock';
+import { formatCountdown } from './quota-countdown';
 
 /** 75 -> "1 min", 3600 -> "60 min", 5400 -> "1 h 30 min". Rounds up: never shows 0 with time left. */
 export function formatMinutes(seconds: number): string {
@@ -27,10 +29,10 @@ export function usedFraction(quota: Pick<QuotaToday, 'used_s' | 'daily_s'>): num
   return Math.min(1, Math.max(0, quota.used_s / quota.daily_s));
 }
 
-/** One line for the label panel: "LIMITADO · 12 min left of 30 min" / grace / exhausted. */
-export function quotaLine(quota: QuotaToday): string {
-  const video = quota.video;
-  if (video?.state === 'grace') return t('quota.grace', { left: formatMinutes(video.grace_remaining_s) });
-  if (quota.exhausted) return t('quota.exhausted', { daily: formatMinutes(quota.daily_s) });
-  return t('quota.left', { left: formatMinutes(quota.remaining_s), daily: formatMinutes(quota.daily_s) });
+/** One line for the label panel, with the same mm:ss as the pill: "Cupo: quedan 12:34 de 30 min" / grace / exhausted. */
+export function quotaLine(view: QuotaView): string {
+  const left = formatCountdown(view.seconds);
+  if (view.grace) return t('quota.grace', { left });
+  if (view.exhausted) return t('quota.exhausted', { daily: formatMinutes(view.daily_s) });
+  return t('quota.left', { left, daily: formatMinutes(view.daily_s) });
 }

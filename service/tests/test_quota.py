@@ -179,3 +179,56 @@ def test_quota_endpoints(client: TestClient) -> None:
     assert client.get("/settings/quota").json() == {"daily_minutes": 30}
     assert client.put("/settings/quota", json={"daily_minutes": 10}).status_code == 200
     assert client.get("/quota/today").json()["daily_s"] == 600
+
+
+# --- latidos idempotentes por pestaña ------------------------------------------------------------
+
+
+def test_duplicate_heartbeat_is_ignored(tracker: QuotaTracker, clock: FakeClock) -> None:
+    """Un latido reenviado (mismo `seq`) o que llega desordenado no se cuenta dos veces."""
+    tracker.heartbeat(SHORT_VIDEO, 15, tab_id="tab-aaaa1", seq=1)
+    clock.now += timedelta(seconds=15)
+    tracker.heartbeat(SHORT_VIDEO, 15, tab_id="tab-aaaa1", seq=2)
+    again = tracker.heartbeat(SHORT_VIDEO, 15, tab_id="tab-aaaa1", seq=2)
+    late = tracker.heartbeat(SHORT_VIDEO, 15, tab_id="tab-aaaa1", seq=1)
+    assert again.used_s == 30 and late.used_s == 30
+
+
+def test_two_senders_in_one_tab_count_wall_time_once(
+    tracker: QuotaTracker, clock: FakeClock
+) -> None:
+    """Dos bucles de latido en la misma pestaña (navegación SPA) declaran 15 s cada 15 s,
+    desfasados: el servicio no cuenta más que el tiempo real transcurrido."""
+    seq = 0
+    for _ in range(4):  # 60 s reales
+        for _sender in range(2):
+            seq += 1
+            tracker.heartbeat(SHORT_VIDEO, 15, tab_id="tab-bbbb1", seq=seq)
+            clock.now += timedelta(seconds=7.5)
+    used = tracker.today().used_s
+    assert used <= 60 + 15 + 8 * 1.0  # tiempo real + primer latido + margen por latido
+    assert used < 2 * 60
+
+
+def test_heartbeat_capped_to_elapsed_time(tracker: QuotaTracker, clock: FakeClock) -> None:
+    tracker.heartbeat(SHORT_VIDEO, 15, tab_id="tab-cccc1", seq=1)
+    clock.now += timedelta(seconds=5)
+    after = tracker.heartbeat(SHORT_VIDEO, 15, tab_id="tab-cccc1", seq=2)
+    assert after.used_s == 15 + 5 + 1  # 5 s reales + 1 s de margen
+
+
+def test_tabs_are_independent_and_legacy_beats_still_count(
+    tracker: QuotaTracker, clock: FakeClock
+) -> None:
+    tracker.heartbeat(SHORT_VIDEO, 15, tab_id="tab-dddd1", seq=1)
+    tracker.heartbeat(SHORT_VIDEO, 15, tab_id="tab-eeee1", seq=1)
+    tracker.heartbeat(SHORT_VIDEO, 15)  # cliente sin tab_id
+    assert tracker.today().used_s == 45
+
+
+def test_heartbeat_endpoint_dedupes(client: TestClient) -> None:
+    body = {"video_id": "abcdefghijk", "seconds": 15, "tab_id": "tab-ffff1", "seq": 1}
+    assert client.post("/quota/heartbeat", json=body).json()["used_s"] == 15
+    assert client.post("/quota/heartbeat", json=body).json()["used_s"] == 15
+    bad = {**body, "tab_id": "x"}
+    assert client.post("/quota/heartbeat", json=bad).status_code == 422
