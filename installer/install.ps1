@@ -257,9 +257,15 @@ function Invoke-Service {
     }
     $service = Get-Service -Name $BsServiceName -ErrorAction SilentlyContinue
     if ($service) {
-        Invoke-Change 'Parar el servicio y actualizar su configuración (WinSW refresh)' {
+        # WinSW 2.x no tiene `refresh` (es de la 3.x): para aplicar el XML nuevo se desregistra
+        # y se vuelve a registrar. El paso 6 lo arranca otra vez.
+        Invoke-Change 'Parar el servicio y volver a registrarlo con la configuración nueva (WinSW uninstall + install)' {
             if ($service.Status -ne 'Stopped') { Stop-Service -Name $BsServiceName -Force }
-            Invoke-Native $WinSWExe @('refresh')
+            Invoke-Native $WinSWExe @('uninstall')
+            for ($i = 0; $i -lt 20 -and (Get-Service -Name $BsServiceName -ErrorAction SilentlyContinue); $i++) {
+                Start-Sleep -Milliseconds 500
+            }
+            Invoke-Native $WinSWExe @('install')
         }
     } else {
         Invoke-Change 'Registrar el servicio (WinSW install: automático, reinicio x3 si falla)' {
