@@ -239,7 +239,7 @@ Cada etiqueta (con su «motivo») queda **pendiente** hasta que se incorpora a l
 ```
 `items`: solo dev, más recientes primero.
 
-`POST /policy/refresh` `{"config": "D"}` (opcional; niveles de la ficha que se resumen) → Claude propone una política revisada a partir de la vigente y de las etiquetas dev pendientes (como mucho 60: primero las que tienen motivo, que se tratan como criterios explícitos; luego las más recientes). No guarda.
+`POST /policy/refresh` `{"config": "D", "instruction": "sé más estricto con los vídeos de reacción"}` (ambos opcionales; `config`: niveles de la ficha que se resumen; `instruction`: indicación libre del usuario, ≤ 2000 caracteres, que Claude trata como orden explícita con prioridad alta, por encima de las etiquetas) → Claude propone una política revisada a partir de la vigente, de la indicación y de las etiquetas dev pendientes (como mucho 60: primero las que tienen motivo, que se tratan como criterios explícitos; luego las más recientes). No guarda. La indicación sola no basta: sin pendientes dev sigue siendo `422` (para editar sin etiquetas, `POST /policy/edit`).
 Respuesta: como `/policy/refine` más `"base_version": 3` y `"feedback": [{"video_id": "...", "labeled_at": "..."}]` (lo que hay que mandar en `incorporate` al guardar). `422` si no hay pendientes dev.
 
 ### `GET /judges`

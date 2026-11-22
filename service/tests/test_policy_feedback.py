@@ -96,6 +96,32 @@ def test_refresh_then_save_marks_dev_labels(client: TestClient, mock_net: respx.
     assert versions == {4}
 
 
+def test_refresh_threads_user_instruction(client: TestClient, mock_net: respx.MockRouter) -> None:
+    route = mock_net.post(ANTHROPIC_URL).mock(
+        return_value=httpx.Response(200, json=anthropic_body(REFRESH_OUTPUT))
+    )
+    instruction = "  sé más estricto con los vídeos de reacción  "
+    response = client.post("/policy/refresh", json={"instruction": instruction})
+    assert response.status_code == 200
+    request = json.loads(route.calls.last.request.content)
+    prompt = request["messages"][0]["content"][0]["text"]
+    assert "Indicación del usuario para esta revisión" in prompt
+    assert "prioridad alta" in prompt and instruction.strip() in prompt
+    # La indicación va antes de las etiquetas y el sistema explica cómo tratarla.
+    assert prompt.index(instruction.strip()) < prompt.index("con motivo")
+    system = request["system"]
+    system_text = system if isinstance(system, str) else " ".join(b["text"] for b in system)
+    assert "Indicación del usuario para esta revisión" in system_text
+
+    # Sin indicación (o en blanco) no aparece la sección.
+    client.post("/policy/refresh", json={"instruction": "   "})
+    blank = json.loads(route.calls.last.request.content)["messages"][0]["content"][0]["text"]
+    assert "Indicación del usuario" not in blank
+    too_long = client.post("/policy/refresh", json={"instruction": "x" * 2001})
+    assert too_long.status_code == 422
+    assert client.get("/policy").json()["version"] == 3  # no guarda nada
+
+
 def test_refresh_without_pending_labels(client: TestClient) -> None:
     refs = [
         {"video_id": i["video_id"], "labeled_at": i["labeled_at"]}

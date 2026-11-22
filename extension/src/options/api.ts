@@ -55,7 +55,9 @@ export const optionsApi = {
     fetchService<EvalOutcome>('POST', '/policy/evaluate', req, req.dry_run ? undefined : EVAL_TIMEOUT_MS),
   refine: (req: RefineRequest) => fetchService<RefineResult>('POST', '/policy/refine', req, LLM_TIMEOUT_MS),
   feedback: () => fetchService<FeedbackSummary>('GET', '/policy/feedback'),
-  refresh: (config?: string) => fetchService<RefreshResult>('POST', '/policy/refresh', config ? { config } : {}, LLM_TIMEOUT_MS),
+  /** `instruction`: optional free text for Claude, with high priority over the labels. */
+  refresh: (opts: { config?: string; instruction?: string } = {}) =>
+    fetchService<RefreshResult>('POST', '/policy/refresh', refreshBody(opts), LLM_TIMEOUT_MS),
   edit: (policy: PolicyContent, instruction: string) =>
     fetchService<EditResult>('POST', '/policy/edit', { policy, instruction }, LLM_TIMEOUT_MS),
   judges: () => fetchService<JudgesOut>('GET', '/judges'),
@@ -73,6 +75,12 @@ export const optionsApi = {
   systemEvents: (kinds: EnforceEventKind[], limit = 10) =>
     fetchService<EnforceEvent[]>('GET', `/system/events?${systemEventsQuery(kinds, limit)}`),
 };
+
+/** Body of POST /policy/refresh: only the fields that carry something. */
+export function refreshBody(opts: { config?: string; instruction?: string }): { config?: string; instruction?: string } {
+  const instruction = opts.instruction?.trim();
+  return { ...(opts.config ? { config: opts.config } : {}), ...(instruction ? { instruction } : {}) };
+}
 
 /** `?kind=tamper&kind=error&limit=10` (FastAPI list query parameter). */
 export function systemEventsQuery(kinds: readonly EnforceEventKind[], limit: number): string {

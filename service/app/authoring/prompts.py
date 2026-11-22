@@ -79,6 +79,9 @@ generaliza; no copies títulos ni ids de vídeo.
 - Si una etiqueta contradice la política, manda la etiqueta. Conserva lo que no contradigan.
 - Si hay que elegir, prefiere errores hacia LIMITADO antes que falsos LIBRE.
 - Si los ejemplos no justifican cambios, devuelve la política igual y dilo en el changelog.
+- Si llega una «Indicación del usuario para esta revisión», es una orden explícita con \
+prioridad alta: aplícala (aunque pida cambiar listas de canales) y, si choca con alguna \
+etiqueta, manda la indicación. Menciónala en el changelog.
 `rationale`: 2–4 frases sobre lo que has aprendido de las etiquetas. `changelog`: lista breve \
 de cambios, una frase cada uno.
 """
@@ -245,10 +248,17 @@ def _feedback_line(example: FeedbackExample) -> str:
     return json.dumps(item, ensure_ascii=False, separators=(",", ":"))
 
 
-def refresh_user_message(current: PolicyContent, examples: list[FeedbackExample]) -> str:
+def refresh_user_message(
+    current: PolicyContent, examples: list[FeedbackExample], instruction: str = ""
+) -> str:
     with_reason = [e for e in examples if e.reason]
     without_reason = [e for e in examples if not e.reason]
     parts = [f"Política vigente:\n{_policy_json(current, with_channels=True)}"]
+    if instruction.strip():
+        parts.append(
+            "Indicación del usuario para esta revisión (orden explícita, prioridad alta; "
+            f"manda sobre las etiquetas):\n{instruction.strip()}"
+        )
     if with_reason:
         parts.append(
             "Etiquetas con motivo del usuario (criterios explícitos, prioridad alta; "

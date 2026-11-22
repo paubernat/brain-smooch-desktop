@@ -34,6 +34,8 @@ async def post_refresh(body: RefreshIn, ctx: Ctx, author: AuthorDep) -> RefreshR
         raise HTTPException(status_code=422, detail="no pending dev labels to incorporate")
     policy = ctx.policies.load()
     try:
-        return await refresh_with_feedback(author, policy.content(), examples, policy.version)
+        return await refresh_with_feedback(
+            author, policy.content(), examples, policy.version, instruction=body.instruction
+        )
     except JudgeError as exc:
         raise HTTPException(status_code=502, detail=f"policy author failed: {exc}") from exc

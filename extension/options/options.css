@@ -496,6 +496,10 @@ table.errors a:hover, .pending-list a:hover { color: var(--green); }
 .tester-pane h3 { margin-top: 0; }
 .calibration-summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin: 12px 0; }
 .pending-count { font: 700 26px/1.1 var(--display); font-stretch: condensed; text-transform: uppercase; margin: 0 0 6px; color: var(--orange); }
+.calibration-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.calibration-instruction { margin: 0 0 12px; }
+.calibration-instruction textarea { width: 100%; }
+.calibration-card > .ai-edit { margin: 12px 0 18px; }
 .pills { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 6px; }
 .pending-list summary { cursor: pointer; color: var(--muted); font-size: 14px; margin: 4px 0 8px; }
 .pending-list ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }

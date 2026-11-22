@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { refreshBody } from '../src/options/api';
 import { percent, usd } from '../src/options/format';
 import { t } from '../src/options/i18n';
 import {
@@ -148,5 +149,13 @@ describe('format and router', () => {
     expect(parseRoute('#manual')).toBe('manual');
     expect(parseRoute('#/agentica')).toBe('agentic');
     expect(parseRoute('')).toBe('landing');
+  });
+});
+
+describe('refreshBody', () => {
+  it('sends only the fields that carry something', () => {
+    expect(refreshBody({})).toEqual({});
+    expect(refreshBody({ instruction: '   ' })).toEqual({});
+    expect(refreshBody({ config: 'D', instruction: '  más estricto  ' })).toEqual({ config: 'D', instruction: 'más estricto' });
   });
 });

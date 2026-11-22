@@ -82,8 +82,10 @@ async def refresh_with_feedback(
     current: PolicyContent,
     examples: list[FeedbackExample],
     base_version: int,
+    instruction: str | None = None,
 ) -> RefreshResult:
-    """Política revisada a partir de las etiquetas dev pendientes (motivos con peso alto).
+    """Política revisada a partir de las etiquetas dev pendientes (motivos con peso alto) y,
+    si la hay, una indicación libre del usuario (prioridad alta).
 
     `feedback` lista exactamente las etiquetas enviadas: son las que se marcarán como
     incorporadas si el usuario guarda la propuesta.
@@ -93,7 +95,9 @@ async def refresh_with_feedback(
         raise ValueError("no pending dev labels to learn from")
     data, usage = await client.complete(
         prompts.REFRESH_SYSTEM,
-        prompts.refresh_user_message(current, selected),
+        prompts.refresh_user_message(
+            current, selected, (instruction or "").strip()[:MAX_INSTRUCTION_CHARS]
+        ),
         prompts.refresh_schema(),
     )
     return RefreshResult(

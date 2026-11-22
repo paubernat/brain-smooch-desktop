@@ -10,10 +10,20 @@ import { UndoStack } from '../undo';
 import { policyDiffView } from './policy-diff-view';
 import { errorNotice, notice, show } from './status';
 
+/** Why the draft is being replaced: an AI edit (with its changelog) or an undo of the last one. */
+export type AiEditChange = { kind: 'edit'; changelog: string } | { kind: 'undo' };
+
 export interface AiEditTarget {
   getPolicy(): PolicyContent;
   /** Replace the editable draft (and whatever state mirrors it). */
-  setPolicy(policy: PolicyContent): void;
+  setPolicy(policy: PolicyContent, change: AiEditChange): void;
+}
+
+/** Labels for hosts other than a draft editor (e.g. the calibration card). */
+export interface AiEditOptions {
+  trigger?: string;
+  triggerTitle?: string;
+  help?: string;
 }
 
 export class AiEditBox {
@@ -25,11 +35,17 @@ export class AiEditBox {
   private readonly status = h('div', { className: 'ai-edit-status' });
   private readonly undoButton: HTMLButtonElement;
   private readonly history = new UndoStack<PolicyContent>();
+  private readonly help: HTMLElement;
 
-  constructor(private readonly target: AiEditTarget) {
-    this.trigger = button(t('aiEdit.trigger'), () => this.toggle(), 'secondary');
+  constructor(
+    private readonly target: AiEditTarget,
+    options: AiEditOptions = {},
+  ) {
+    this.trigger = button(options.trigger ?? t('aiEdit.trigger'), () => this.toggle(), 'secondary');
     this.trigger.classList.add('ai-trigger');
-    this.trigger.title = t('aiEdit.triggerTitle');
+    this.trigger.title = options.triggerTitle ?? t('aiEdit.triggerTitle');
+    this.trigger.setAttribute('aria-expanded', 'false');
+    this.help = h('p', { className: 'muted small', text: options.help ?? t('aiEdit.help') });
     const apply = button(t('aiEdit.apply'), () => void withBusy(apply, t('aiEdit.applying'), () => this.apply()), 'primary');
     this.undoButton = button(t('aiEdit.undo'), () => this.undo(), 'ghost');
     this.undoButton.disabled = true;
@@ -43,11 +59,22 @@ export class AiEditBox {
     this.element = h(
       'div',
       { className: 'ai-edit hidden' },
-      h('p', { className: 'muted small', text: t('aiEdit.help') }),
+      this.help,
       this.input,
       h('div', { className: 'actions inline' }, apply, this.undoButton, button(t('common.close'), () => this.close(), 'ghost')),
       this.status,
     );
+  }
+
+  setHelp(text: string): void {
+    this.help.textContent = text;
+  }
+
+  /** Forget the undo history and the last message (the draft was replaced from outside). */
+  reset(): void {
+    this.history.clear();
+    this.undoButton.disabled = true;
+    show(this.status);
   }
 
   private toggle(): void {
@@ -74,7 +101,7 @@ export class AiEditBox {
       return;
     }
     this.history.push(before);
-    this.target.setPolicy(res.data.content);
+    this.target.setPolicy(res.data.content, { kind: 'edit', changelog: res.data.changelog });
     this.input.value = '';
     this.undoButton.disabled = false;
     show(
@@ -91,7 +118,7 @@ export class AiEditBox {
   private undo(): void {
     const previous = this.history.pop();
     if (!previous) return;
-    this.target.setPolicy(previous);
+    this.target.setPolicy(previous, { kind: 'undo' });
     this.undoButton.disabled = this.history.size === 0;
     show(this.status, notice('info', t('aiEdit.undone')));
   }

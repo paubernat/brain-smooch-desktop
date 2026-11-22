@@ -54,6 +54,8 @@ class RefineIn(BaseModel):
 
 class RefreshIn(BaseModel):
     config: str = DEFAULT_CONFIG  # niveles de la ficha que se resumen para Claude
+    # Indicación libre del usuario para esta revisión (prioridad alta frente a las etiquetas).
+    instruction: str | None = Field(default=None, max_length=2000)
 
 
 class EditIn(BaseModel):
